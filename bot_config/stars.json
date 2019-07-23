@@ -1,0 +1,82 @@
+{
+  "emoji_count": 10,
+  "values": [
+    "0",
+    "50",
+    "150",
+    "250",
+    "500",
+    "1000",
+    "1250",
+    "1500",
+    "2000",
+    "2500"
+  ],
+  "stars": [
+    " ",
+    " :star:",
+    " :star2:",
+    " :dizzy:",
+    " :sparkles:",
+    " :comet:",
+    " :boom:",
+    " :trident:",
+    " :trophy:",
+    " :crown:"
+  ],
+  "medals": [
+    ":first_place:",
+    ":second_place:",
+    ":third_place:",
+    ":medal:",
+    ":medal:"
+  ],
+  "xmas": [
+    " ",
+    " :snowflake:",
+    " :cloud_snow:",
+    " :christmas_tree:",
+    " :snowman:",
+    " :snowman2:",
+    " :deer:",
+    " :santa::skin-tone-3:",
+    " :gift:",
+    " :crown:"
+  ],
+  "valentines": [
+    " ",
+    " :heart:",
+    " :heart_exclamation:",
+    " :two_hearts:",
+    " :revolving_hearts:",
+    " :heartbeat:",
+    " :heartpulse:",
+    " :sparkling_heart:",
+    " :gift_heart:",
+    " :crown:"
+  ],
+  "easter": [
+    " ",
+    " :egg:",
+    " :hatching_chick:",
+    " :hatched_chick:",
+    " :baby_chick:",
+    " :rooster:",
+    " :chicken:",
+    " :rabbit2:",
+    " :rabbit:",
+    " :crown:"
+  ],
+  "halloween": [
+    " ",
+    " :mushroom:",
+    " :jack_o_lantern:",
+    " :ghost:",
+    " :skull:",
+    " :skull_crossbones:",
+    " :full_moon:",
+    " :spider_web:",
+    " :coffin:",
+    " :crown:"
+  ]
+}
