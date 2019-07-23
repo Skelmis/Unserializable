@@ -180,6 +180,7 @@ async def on_command_error(ctx, error):
 @bot.command()
 @commands.is_owner()
 async def prupdate(ctx, *, args):
+    """Progress update logger"""
     data = read_json('config')
     number = data['progressReportCounter']
     number += 1
@@ -197,6 +198,7 @@ async def prupdate(ctx, *, args):
 @bot.command()
 @commands.is_owner()
 async def cwhitelist(ctx):
+    """Whitelist channels for the bot"""
     channel = '{0.id}'.format(ctx.message.channel)
     data = read_json('whitelistedChannels')
     if channel in data:
@@ -313,6 +315,7 @@ async def verify(ctx):
 @bot.command()
 @commands.is_owner()
 async def echo(ctx,*,msg='e'):
+    """Echo input"""
     if msg == 'e':
         await ctx.send("Please enter text to echo after the command")
     else:
@@ -320,7 +323,6 @@ async def echo(ctx,*,msg='e'):
         await ctx.send(msg)
 
 @bot.event
-@commands.is_owner()
 async def on_member_join(user):
     if user.guild.id == 599164187385659402:
         uid = str(user.id)
@@ -367,6 +369,7 @@ async def on_member_join(user):
 
 @bot.command()
 async def invites(ctx):
+    """Show invites"""
     did = 599164187385659402
     if ctx.guild.id == did:
         data = read_json('inviteLog')
@@ -399,6 +402,7 @@ spamcount = 0
 @bot.command()
 @commands.is_owner()
 async def spam(ctx, *, message):
+    """Spam input"""
     global spamcount
     while spamcount < 5:
         await ctx.send("{}".format(message))
@@ -408,19 +412,11 @@ async def spam(ctx, *, message):
         spamcount = 0
 
 @bot.command()
-@commands.is_owner()
+@commands.has_role('Cool Kids')
 async def purge(ctx, amount:int):
+    """Purge some channels"""
     amount += 1
     await ctx.channel.purge(limit=amount)
-
-@bot.command()
-@commands.is_owner()
-async def modules(ctx):
-    await ctx.send("Current Modules:")
-    await asyncio.sleep(1)
-    for extension in extensions:
-        await ctx.send(extension)
-        await asyncio.sleep(0.5)
 
 @bot.command(name='perms', aliases=['perms_for', 'permissions', 'userperms'])
 @commands.guild_only()
@@ -442,7 +438,7 @@ async def check_permissions(ctx, member: discord.Member=None):
 @bot.command()
 @commands.is_owner()
 async def embed(ctx, *, content:str):
-
+    """Embed a message"""
     # Usage: (prefix)embed <your message>
 
     embed = discord.Embed(
@@ -460,6 +456,7 @@ async def embed(ctx, *, content:str):
 @bot.command()
 @commands.is_owner()
 async def itest(ctx):
+    """Income averages command"""
     for i in range(25):
         incomes = []
         for i in range(10):
@@ -475,19 +472,22 @@ async def itest(ctx):
         await asyncio.sleep(2)
 
 @bot.group()
-async def new(ctx):
+async def bug(ctx):
+    """Bug report section"""
     if ctx.invoked_subcommand is None:
         time = getTime()
         em = discord.Embed(title="Commands", description="Avaliable commands.", colour=0x0000CC)
-        em.add_field(name="bug",value="Report bot bugs", inline=False)
-        em.add_field(name="report",value="Report players abusing bot commands", inline=False)
+        em.add_field(name="report",value="Report bot bugs", inline=False)
+        em.add_field(name="status",value="Check the status of a bug report", inline=False)
+        em.add_field(name="accept",value="Accept and close active bug reports - `Management Only`", inline=False)
+        em.add_field(name="deny",value="Deny and close active bug reports - `Management Only`", inline=False)
         em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
         em.set_footer(text=bot.embed_footer + time)
         await ctx.send(embed=em)
         await ctx.message.delete()
 
-@new.command()
-async def bug(ctx, *, args):
+@bug.command()
+async def report(ctx, *, args):
     data = read_json('reports')
     time = getTime()
     uid = '{0.id}'.format(ctx.message.author)
@@ -500,29 +500,147 @@ async def bug(ctx, *, args):
         data['bug'][newRid]['content'] = args
         data['bug'][newRid]['status'] = "open"
         data['bug'][newRid]['authorId'] = uid
-        write_json(data, 'reports')
         em = discord.Embed(title="Bug report", description="Certified bug bounty hunter.", colour=0xFF00CC)
         em.add_field(name="Bug:",value=args, inline=False)
         em.add_field(name="Report id:",value=newRid, inline=False)
         em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
         em.set_footer(text=bot.embed_footer + time)
-        msg = await ctx.send(embed=em)
-        await channel.send(embed=em)
+        try:
+            user = bot.get_user(int(uid))
+            await user.send("Thanks for reporting the bug to us. :smiley:")
+            msg = await user.send(embed=em)
+        except:
+            await ctx.send(content=f"Open your dm's or you won't receive the response to your report <@{uid}>..")
+            msg = await ctx.send(embed=em, delete_after=10)
+        msgTwo = await channel.send(embed=em)
+        data['bug'][newRid]['msgId'] = msgTwo.id
+        write_json(data, 'reports')
         await asyncio.sleep(5)
         await ctx.message.delete()
-        await asyncio.sleep(10)
-        await msg.delete()
     else:
         await channel.send(f"An error occured when ({uid}) tried making a bug report")
 
+@bug.command()
+async def status(ctx, rid):
+    data = read_json('reports')
+    time = getTime()
+    validReport = False
+    if rid in data['bug']:
+        validReport = True
+    if validReport == True:
+        state = data['bug'][rid]['status']
+        if state == "open":
+            colour = 0xFFFFFF
+        elif state == "Accepted":
+            colour = 0x006400
+        elif state == "Denied":
+            colour = 0x8B0000
+        em = discord.Embed(title="Bug report", description=f"Status: {state}", colour=colour)
+        em.add_field(name="Report id:",value=rid, inline=False)
+        em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+        em.set_footer(text=bot.embed_footer + time)
+        await ctx.send(embed=em)
+        await ctx.message.delete()
+    else:
+        await ctx.send(content="Invalid report id...", delete_after=5)
+        await ctx.message.delete()
 
+@bug.command()
+@commands.has_role('Cool Kid')
+async def accept(ctx, rid, *, reason=None):
+    state = "Accepted"
+    data = read_json('reports')
+    time = getTime()
+    validReport = False
+    if rid in data['bug']:
+        validReport = True
+    if validReport == True:
+        if not reason:
+            reason = f"{state} by {ctx.author.name}."
+        msgId = data['bug'][rid]['msgId']
+        openReportChannel = bot.get_channel(601420701580132352)
+        channel = bot.get_channel(601420726737829901)
+        msg = await openReportChannel.fetch_message(int(msgId))
+        reportContent = data['bug'][rid]['content']
+        reporterId = data['bug'][rid]['authorId']
+        reportUser = bot.get_user(int(reporterId))
+        em = discord.Embed(title="Bug report", description=f"Status: {state}", colour=0x006400)
+        em.add_field(name="Bug report content:",value=reportContent, inline=False)
+        em.add_field(name="Report id:",value=rid, inline=False)
+        em.add_field(name="Closing comment:",value=reason, inline=False)
+        em.set_author(name = str(reportUser.name), icon_url = str(reportUser.avatar_url))
+        em.set_footer(text=bot.embed_footer + time)
+        data['bug'][rid]['status'] = f"{state}"
+        write_json(data, 'reports')
+        await channel.send(embed=em)
+        try:
+            user = bot.get_user(int(reporterId))
+            em = discord.Embed(title="Bug report", description=f"Status: {state}", colour=0x006400)
+            em.add_field(name="Bug report content:",value=reportContent, inline=False)
+            em.add_field(name="Report id:",value=rid, inline=False)
+            em.add_field(name="Closing comment:",value=reason, inline=False)
+            em.set_author(name = str(reportUser.name), icon_url = str(reportUser.avatar_url))
+            em.set_footer(text=bot.embed_footer + time)
+            await user.send(embed=em)
+        except:
+            print(f"Unable to dm {reporterId} in response to report {rid}")
+        await msg.delete()
+        await ctx.message.delete()
+    else:
+        await ctx.send(content="Invalid report id...", delete_after=5)
+        await ctx.message.delete()
 
+@bug.command()
+@commands.has_role('Cool Kid')
+async def deny(ctx, rid, *, reason=None):
+    state = "Denied"
+    data = read_json('reports')
+    time = getTime()
+    validReport = False
+    if rid in data['bug']:
+        validReport = True
+    if validReport == True:
+        if not reason:
+            reason = f"{state} by {ctx.author.name}."
+        msgId = data['bug'][rid]['msgId']
+        openReportChannel = bot.get_channel(601420701580132352)
+        channel = bot.get_channel(601420726737829901)
+        msg = await openReportChannel.fetch_message(int(msgId))
+        reportContent = data['bug'][rid]['content']
+        reporterId = data['bug'][rid]['authorId']
+        reportUser = bot.get_user(int(reporterId))
+        em = discord.Embed(title="Bug report", description=f"Status: {state}", colour=0x8B0000)
+        em.add_field(name="Bug report content:",value=reportContent, inline=False)
+        em.add_field(name="Report id:",value=rid, inline=False)
+        em.add_field(name="Closing comment:",value=reason, inline=False)
+        em.set_author(name = str(reportUser.name), icon_url = str(reportUser.avatar_url))
+        em.set_footer(text=bot.embed_footer + time)
+        data['bug'][rid]['status'] = f"{state}"
+        write_json(data, 'reports')
+        await channel.send(embed=em)
+        try:
+            user = bot.get_user(int(reporterId))
+            em = discord.Embed(title="Bug report", description=f"Status: {state}", colour=0x8B0000)
+            em.add_field(name="Bug report content:",value=reportContent, inline=False)
+            em.add_field(name="Report id:",value=rid, inline=False)
+            em.add_field(name="Closing comment:",value=reason, inline=False)
+            em.set_author(name = str(reportUser.name), icon_url = str(reportUser.avatar_url))
+            em.set_footer(text=bot.embed_footer + time)
+            await user.send(embed=em)
+        except:
+            print(f"Unable to dm {reporterId} in response to report {rid}")
+        await msg.delete()
+        await ctx.message.delete()
+    else:
+        await ctx.send(content="Invalid report id...", delete_after=5)
+        await ctx.message.delete()
 
 
 #starting ecconomy stuff
 @bot.command()
 @commands.cooldown(1, 15, commands.BucketType.user)
 async def income(ctx):
+    """A command to generate income"""
     randomOne = random.randint(1,5)
     randomTwo = random.randint(1,5)
     uid = '{0.id}'.format(ctx.message.author)
@@ -601,6 +719,7 @@ async def income(ctx):
 
 @bot.command()
 async def bank(ctx, type='e', amount=0.0):
+    """A command to move your money around"""
     verified = await checkVerified(ctx)
     if verified == True:
         await ctx.trigger_typing()
@@ -635,6 +754,7 @@ async def bank(ctx, type='e', amount=0.0):
 
 @bot.command()
 async def bal(ctx, user: discord.User=None):
+    """A command to checkout yourself or others"""
     verified = await checkVerified(ctx)
     if verified == True:
         await ctx.trigger_typing()
@@ -660,6 +780,7 @@ async def bal(ctx, user: discord.User=None):
             bankedMoney = round(bankedMoney)
             totalMoney = round(totalMoney)
             em = discord.Embed(title="Bank", description="Little nerdy boi.", colour=0xCCCC00)
+            em.add_field(name="Balance for:",value=f"<@{uid}>", inline=False)
             em.add_field(name="Cash:",value=f"${currentMoney}", inline=False)
             em.add_field(name="Banked money:",value=f"${bankedMoney}", inline=False)
             em.add_field(name="Total money:",value=f"${totalMoney}", inline=False)
@@ -672,6 +793,7 @@ async def bal(ctx, user: discord.User=None):
 
 @bot.command()
 async def baltop(ctx, pagenum='1'):
+    """Check out the money balances"""
     verified = await checkVerified(ctx)
     if verified == True:
         await ctx.trigger_typing()
@@ -721,11 +843,13 @@ async def baltop(ctx, pagenum='1'):
 @bot.command()
 @commands.is_owner()
 async def emtest(ctx, *, em):
+    """Set embed footers"""
     bot.embed_footer = em
 
 @bot.command()
-@commands.cooldown(1, 150, commands.BucketType.user)
+@commands.cooldown(1, 15, commands.BucketType.user)
 async def rob(ctx, user: discord.User):
+    """Rob someone else"""
     verified = await checkVerified(ctx)
     if verified == True:
         randomOne = random.randint(1,6)
@@ -818,6 +942,7 @@ async def rob(ctx, user: discord.User):
 @bot.group()
 @commands.is_owner()
 async def admin(ctx):
+    """Add or remove bot admins"""
     verified = await checkVerified(ctx)
     if verified == True:
         if ctx.invoked_subcommand is None:
@@ -903,6 +1028,7 @@ global before_invites
 
 @bot.command()
 async def serverinfo(ctx, guild: discord.Guild):
+        """Command to show server info"""
         guild = bot
         embed = discord.Embed(
             color=discord.Color.from_rgb(241, 90, 36)
@@ -1163,6 +1289,7 @@ def write_json(data, filename):
 
 @bot.group()
 async def stats(ctx):
+    """Show some basic stats"""
     if ctx.invoked_subcommand is None:
         time = getTime()
         data = read_json('secrets')
@@ -1233,25 +1360,6 @@ async def help(ctx):
     embed.add_field(name='bank', value='\uFEFF')
     await ctx.send(embed=embed)
 '''
-@bot.command()
-@commands.is_owner()
-async def load(ctx, extension):
-    if extension in extensions:
-        try:
-            bot.load_extension(extension)
-            await ctx.send('Loaded module {}'.format(extension))
-        except Exception as error:
-            await ctx.send('{} module cannont be loaded. [{}]'.format(extension, error))
-
-@bot.command()
-@commands.is_owner()
-async def unload(ctx, extension):
-    if extension in extensions:
-        try:
-            bot.unload_extension(extension)
-            await ctx.send('Unloaded module {}'.format(extension))
-        except Exception as error:
-            await ctx.send('{} module cannont be unloaded. [{}]'.format(extension, error))
 
 if __name__ == '__main__':
     for extension in extensions:
