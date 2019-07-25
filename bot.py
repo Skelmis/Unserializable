@@ -10,7 +10,7 @@ import os
 import json
 import math
 import datetime
-import sys
+import sys, traceback
 import platform
 import random, string
 import pathlib
@@ -20,6 +20,22 @@ from datetime import datetime
 print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 cwd = Path(__file__).parents[0]
 print(cwd)
+
+
+OPUS_LIBS = ['libopus-0.x86.dll', 'libopus-0.x64.dll', 'libopus-0.dll', 'libopus.so.0', 'libopus.0.dylib']
+
+def load_opus_lib(opus_libs=OPUS_LIBS):
+    if opus.is_loaded():
+        return True
+
+    for opus_lib in opus_libs:
+        try:
+            opus.load_opus(opus_lib)
+            return
+        except OSError:
+            pass
+
+        raise RuntimeError('Could not load an opus lib. Tried %s' % (', '.join(opus_libs)))
 
 def get_prefix(bot, message):
     if not message.guild:
@@ -33,17 +49,18 @@ def get_prefix(bot, message):
 
 config_file = json.load(open(str(cwd)+'/bot_config/config.json'))
 secret_file = json.load(open(str(cwd)+'/bot_config/secrets.json'))
-bot = commands.Bot(command_prefix=get_prefix, owner_id=271612318947868673)
+bot = commands.Bot(command_prefix=get_prefix, owner_id=271612318947868673, case_insensitive=True)
 #bot.remove_command('help')
 bot.config_token = secret_file['token']
 bot.config_stars = json.load(open(str(cwd)+'/bot_config/stars.json'))
 bot.next_bug_report_id = None
 extensions = []
 
-botVersion = "0.7.2"
+botVersion = "0.7.3"
 
 @bot.event
 async def on_ready():
+    """When the bot has connected to discord and is ready to go, is different to on connect"""
     print('------')
     global before_invites
     before_invites = []
@@ -69,10 +86,11 @@ async def on_ready():
     bot.embed_footer = f"Carpe Noctem | {bot.user.name} | "
     print(bot.user.id)
     print('------')
-    await bot.change_presence(activity=discord.Game(name="Unserializable stands for fucka you two"))
+    await bot.change_presence(activity=discord.Game(name="Beware of keeping cash, but can you trust the banks?"))
 
 @bot.event
 async def on_message(message):
+    """On discord message, this events called"""
     '''
     if bot.user.mentioned_in(message) and message.mention_everyone is False and:
         did = '{}'.format(message.guild.id)
@@ -86,22 +104,23 @@ async def on_message(message):
     #    commands.append(command)
     #    print(command)
     #await message.channel.send(commands)
-    '''if message.author.id != 600246325900214295:
+    if message.author.id != 600246325900214295:
         if message.guild.id == 599164187385659402:
             data = read_json('whitelistedChannels')
             channel = '{0.id}'.format(message.channel)
             if channel in data:
-                if channel['state'] == "true":
+                if data[channel]['state'] == "true":
                     await bot.process_commands(message)
+                else:
+                    print(f"{message.channel.name} is not a whitelisted channel")
             else:
-                msg = await message.channel.send("This channel is not whitelisted therefore you cannont use bot commands here.")
-                await asyncio.sleep(5)
-                await msg.delete()
-        else:'''
-    await bot.process_commands(message)
+                print(f"{message.channel.name} is not in the data")
+        else:
+            await bot.process_commands(message)
 
 @bot.event
 async def on_guild_join(guild):
+    """When the bot joins a new guild this runs"""
     guildId = '{}'.format(guild.id)
     guildName = '{}'.format(guild.name)
     failure = False
@@ -147,6 +166,7 @@ async def on_guild_join(guild):
 
 @bot.event
 async def on_message_delete(message):
+    """When a message is deleted this is called"""
     author = message.author
     deleteChannel = message.channel
     content = message.content
@@ -156,6 +176,7 @@ async def on_message_delete(message):
 
 @bot.event
 async def on_command_completion(ctx):
+    """Everytime a command is completed successfully this is called"""
     data = read_json('secrets')
     count = data['cc']
     count += 1
@@ -164,6 +185,11 @@ async def on_command_completion(ctx):
 
 @bot.event
 async def on_command_error(ctx, error):
+    """Everytime a command errors this is called"""
+    ignored = (commands.CommandNotFound)
+    if isinstance(error, ignored):
+        return
+
     if isinstance(error, commands.CommandOnCooldown):
         await ctx.send('This command is on a `%.2fs` cooldown' % error.retry_after)
     elif isinstance(error, commands.CheckFailure):
@@ -197,9 +223,10 @@ async def prupdate(ctx, *, args):
 
 @bot.command()
 @commands.is_owner()
-async def cwhitelist(ctx):
+async def cwhitelist(ctx, channel=None):
     """Whitelist channels for the bot"""
-    channel = '{0.id}'.format(ctx.message.channel)
+    if not channel:
+        channel = '{0.id}'.format(ctx.message.channel)
     data = read_json('whitelistedChannels')
     if channel in data:
         if data[channel]['state'] == "true":
@@ -324,6 +351,7 @@ async def echo(ctx,*,msg='e'):
 
 @bot.event
 async def on_member_join(user):
+    """When a member joins a guild the bot is in this is called"""
     if user.guild.id == 599164187385659402:
         uid = str(user.id)
         did = str(user.guild.id)
@@ -412,7 +440,7 @@ async def spam(ctx, *, message):
         spamcount = 0
 
 @bot.command()
-@commands.has_role('Cool Kids')
+@commands.has_role('Cool Kid')
 async def purge(ctx, amount:int):
     """Purge some channels"""
     amount += 1
@@ -488,6 +516,7 @@ async def bug(ctx):
 
 @bug.command()
 async def report(ctx, *, args):
+    """Open a new bug report"""
     data = read_json('reports')
     time = getTime()
     uid = '{0.id}'.format(ctx.message.author)
@@ -522,6 +551,7 @@ async def report(ctx, *, args):
 
 @bug.command()
 async def status(ctx, rid):
+    """Check the status of any bug report"""
     data = read_json('reports')
     time = getTime()
     validReport = False
@@ -548,6 +578,7 @@ async def status(ctx, rid):
 @bug.command()
 @commands.has_role('Cool Kid')
 async def accept(ctx, rid, *, reason=None):
+    """Accept and close a bug report"""
     state = "Accepted"
     data = read_json('reports')
     time = getTime()
@@ -593,6 +624,7 @@ async def accept(ctx, rid, *, reason=None):
 @bug.command()
 @commands.has_role('Cool Kid')
 async def deny(ctx, rid, *, reason=None):
+    """Deny and close a bug report"""
     state = "Denied"
     data = read_json('reports')
     time = getTime()
@@ -635,14 +667,45 @@ async def deny(ctx, rid, *, reason=None):
         await ctx.send(content="Invalid report id...", delete_after=5)
         await ctx.message.delete()
 
+@bot.command()
+@commands.is_owner()
+async def logout(ctx):
+    """Log the bot out of discord"""
+    await ctx.send("Logging out...")
+    await bot.logout()
 
-#starting ecconomy stuff
+"""
+#music stuffs
+@bot.command()
+@commands.is_owner()
+async def play(ctx, song, channel=None):
+    if not channel:
+        channel = ctx.author.voice.channel.id
+    channel = bot.get_channel(int(channel))
+    vc = await channel.connect()
+    vc.play(discord.FFmpegPCMAudio(str(cwd) + f'/{song}.mp3'), after=lambda e: print('done', e))
+    vc.source = discord.PCMVolumeTransformer(vc.source)
+    vc.source.volume = 0.5
+    vc.is_playing()
+    print('Bot should joined the Channel')
+
+@bot.command()
+@commands.is_owner()
+async def stop(ctx):
+    guild = ctx.guild
+    vc: discord.VoiceClient = discord.utils.get(bot.voice_clients, guild=guild)
+    await vc.disconnet()
+"""
+
+
+#starting eco stuff
 @bot.command()
 @commands.cooldown(1, 15, commands.BucketType.user)
 async def income(ctx):
     """A command to generate income"""
-    randomOne = random.randint(1,5)
-    randomTwo = random.randint(1,5)
+    randomOne = random.randint(1,6)
+    randomTwo = random.randint(1,6)
+    #await ctx.send(f"{randomOne} + {randomTwo}")
     uid = '{0.id}'.format(ctx.message.author)
     did = '{0.id}'.format(ctx.message.guild)
     if randomOne == randomTwo:
@@ -670,7 +733,6 @@ async def income(ctx):
             discordMod = discordModData[did]['modifier']
             userMod = userModData[uid]['modifier']
             totalMod = (discordMod + userMod) / 2
-            print(totalMod)
             await ctx.trigger_typing()
             responseData = read_json('responses')
             responseNumber = random.randint(1,6)
@@ -709,7 +771,7 @@ async def income(ctx):
     else:
         time = getTime()
         em = discord.Embed(title="Income", description="Botting money.", colour=0x0000CC)
-        em.add_field(name="You have a failed status in an anti bot check. ",value="Please contact <@271612318947868673> to resolve this issues.", inline=False)
+        em.add_field(name="You have a failed status in an anti bot check. ",value="Please run the command `antibot` to resolve this issue.\nIf you need assistance contact <@271612318947868673> to resolve this issues.", inline=False)
         em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
         em.set_footer(text=bot.embed_footer + time)
         await ctx.send(embed=em)
@@ -718,6 +780,7 @@ async def income(ctx):
 
 
 @bot.command()
+@commands.cooldown(1, 15, commands.BucketType.user)
 async def bank(ctx, type='e', amount=0.0):
     """A command to move your money around"""
     verified = await checkVerified(ctx)
@@ -734,7 +797,10 @@ async def bank(ctx, type='e', amount=0.0):
             if type.lower() == 'deposit':
                 amount = round(amount)
                 r = deposit(uid, amount)
-                em = discord.Embed(title="Bank", description="Into the safe it goes.", colour=0x228B22)
+                if "you" in r.lower():
+                    em = discord.Embed(title="Bank", description="Its theft your honour.", colour=0x228B22)
+                else:
+                    em = discord.Embed(title="Bank", description="Into the safe it goes.", colour=0x228B22)
                 em.add_field(name="Deposit:",value=f"{r}", inline=False)
                 em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
                 em.set_footer(text=bot.embed_footer + time)
@@ -789,7 +855,7 @@ async def bal(ctx, user: discord.User=None):
             await ctx.send(embed=em)
             await ctx.message.delete()
         else:
-            await ctx.send("Um yea, so you don't exist in the db for this discord. E.g. your a poor fuck and should use {}income".format(prefix))
+            await ctx.send("Um yea, so you don't exist in the db for this discord. E.g. You should use {}income".format(prefix))
 
 @bot.command()
 async def baltop(ctx, pagenum='1'):
@@ -858,7 +924,6 @@ async def rob(ctx, user: discord.User):
         name = '{}'.format(ctx.message.author)
         userId = '{0.id}'.format(user)
         moneyData = read_json('money')
-
         if userId == uid:
             await ctx.send("Bruh you can't just rob yourself")
         else:
@@ -951,6 +1016,7 @@ async def admin(ctx):
 @admin.command()
 @commands.is_owner()
 async def add(ctx, user=None):
+    """Add a user as bot admin - `Owner only`"""
     verified = await checkVerified(ctx)
     if verified == True:
         if not user:
@@ -974,6 +1040,7 @@ async def add(ctx, user=None):
 
 @admin.command()
 async def remove(ctx, user=None):
+    """Remove someone as bot admin - `Owner only`"""
     verified = await checkVerified(ctx)
     if verified == True:
         if not user:
@@ -1015,6 +1082,50 @@ async def rtest(ctx, invite: discord.Invite):
         await ctx.send(f"{invite.max_age} {invite.approximate_member_count} {invite.id} {invite.url}")
 
 
+@bot.command()
+async def antibot(ctx):
+    """For when you fail an anti bot check, this can get you out of a sticky situation"""
+    uid = '{0.id}'.format(ctx.author)
+    data = read_json('userConfig')
+    if uid in data:
+        if data[uid]['botCheck'] == "fail":
+            user = bot.get_user(int(uid))
+            randNum = random.randint(000000, 999999)
+            time = getTime()
+            embed = discord.Embed(title=f"{ctx.message.author}", description="Please repeat the below code to avoid being known to me as a bot.", colour=0xffffff)
+            embed.add_field(name="You have 60 seconds to verify with the below code.",value=f"{randNum}")
+            embed.set_footer(text=bot.embed_footer + time)
+            await ctx.send(content=f"Hey {user.mention}, please check your dms from me", delete_after=15)
+            message = await user.send(embed=embed)
+            try:
+                msg = await bot.wait_for('message', timeout=60, check=lambda message: message.author == ctx.author)
+                if msg:
+                    if msg.content == str(randNum):
+                        em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nPass", colour=0x228B22)
+                        em.add_field(name="Thank you for completing this bot check.",value=f"Your input: *{msg.content}*")
+                        data = read_json('userConfig')
+                        data[uid]['botCheck'] = "pass"
+                        write_json(data, 'userConfig')
+                    else:
+                        data = read_json('userConfig')
+                        data[uid]['botCheck'] = "fail"
+                        write_json(data, 'userConfig')
+                        em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nFail-Wrong Input", colour=0xff0000)
+                        em.add_field(name="Im sorry but you failed this bot check.",value=f"Your input: *{msg.content}*")
+                    time = getTime()
+                    em.set_footer(text=bot.embed_footer + time)
+                    messageTwo = await user.send(embed=em)
+            #if msg is None:
+            except asyncio.TimeoutError:
+                data = read_json('userConfig')
+                data[uid]['botCheck'] = "fail"
+                write_json(data, 'userConfig')
+                time = getTime()
+                em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nFail-No Input", colour=0x808080)
+                em.add_field(name="Im sorry but you failed to verify you aren't a bot.",value=f"Your input: *null*")
+                em.set_footer(text=bot.embed_footer + time)
+                messageTwo = await user.send(embed=em)
+
 """
 global before_invites
     before_invites = []
@@ -1047,6 +1158,7 @@ async def serverinfo(ctx, guild: discord.Guild):
 
 #functions
 async def botCheck(ctx):
+    """A function that can be used to check if someone is scripting or not"""
     data = read_json('userConfig')
     uid = '{0.id}'.format(ctx.author)
     user = bot.get_user(int(uid))
@@ -1055,11 +1167,12 @@ async def botCheck(ctx):
     randNum = random.randint(000000, 999999)
     time = getTime()
     embed = discord.Embed(title=f"{ctx.message.author}", description="Please repeat the below code to avoid being flagged as a bot.", colour=0xffffff)
-    embed.add_field(name="You have 30 seconds to verify with the below code.",value=f"{randNum}")
+    embed.add_field(name="You have 60 seconds to verify with the below code.",value=f"{randNum}")
     embed.set_footer(text=bot.embed_footer + time)
+    await ctx.send(content=f"Hey {user.mention}, please check your dms from me", delete_after=15)
     message = await user.send(embed=embed)
     try:
-        msg = await bot.wait_for('message', timeout=30, check=lambda message: message.author == ctx.author)
+        msg = await bot.wait_for('message', timeout=60, check=lambda message: message.author == ctx.author)
         if msg:
             if msg.content == str(randNum):
                 em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nPass", colour=0x228B22)
@@ -1076,7 +1189,6 @@ async def botCheck(ctx):
             time = getTime()
             em.set_footer(text=bot.embed_footer + time)
             messageTwo = await user.send(embed=em)
-    #if msg is None:
     except asyncio.TimeoutError:
         data = read_json('userConfig')
         data[uid]['botCheck'] = "fail"
@@ -1089,6 +1201,7 @@ async def botCheck(ctx):
 
 
 def bugReportCheck():
+    """Used to generate new bug report id's will forever loop untill an unused id is found theoretically"""
     data = read_json('reports')
     if not 'bug' in data:
         data['bug'] = {}
@@ -1100,10 +1213,12 @@ def bugReportCheck():
     bot.next_bug_report_id = reportId
 
 def getRandomString():
+    """Creates a random string of ascii letters and digits, used for report id generation"""
     x = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
     return x
 
 async def checkVerified(ctx):
+    """Checks if someone is verified or not"""
     data = read_json('userConfig')
     uid = '{0.id}'.format(ctx.author)
     if uid in data:
@@ -1143,6 +1258,7 @@ async def checkVerified(ctx):
         return False
 
 async def checkWhitelist(ctx):
+    """A function made for usage with bot restrictions in the back alley"""
     if ctx.guild.id == 599164187385659402:
         data = read_json('whitelistedChannels')
         channel = '{0.id}'.format(ctx.channel)
@@ -1163,10 +1279,12 @@ async def checkWhitelist(ctx):
             return False
 
 def getTime():
+    """Gets current date"""
     time = datetime.now().strftime('%d/%m/%Y')
     return time
 
 def round(amount):
+    """Rounds a number to 2 decimal places"""
     easy = []
     newAmount = 0
     amountStr = str(amount)
@@ -1183,6 +1301,7 @@ def round(amount):
         return amount
 
 def roundRam(amount):
+    """Rounds ram usage to a bigger decimal place then the other round command"""
     easy = []
     newAmount = 0
     amountStr = str(amount)
@@ -1200,6 +1319,7 @@ def roundRam(amount):
 
 
 def deposit(uid, amount):
+    """Used with the bank commands to deposit money to people's bank accounts"""
     moneyData = read_json('money')
     w = " "
     amount = float(amount)
@@ -1217,12 +1337,13 @@ def deposit(uid, amount):
             moneyData[uid]['bankedMoney'] = bankedMoney
             moneyData[uid]['money'] = currentMoney
             write_json(moneyData, 'money')
-            w = "Deposited ${} into your bank account".format(amount)
+            w = "Deposited ${} into the bank".format(amount)
     else:
         w = "It appears you don't exist to me, im sorry. :cry:"
     return w
 
 def withdraw(uid, amount):
+    """Used with the bank commands to withdraw money from peoples bank accounts"""
     moneyData = read_json('money')
     w = " "
     amount = float(amount)
@@ -1246,6 +1367,7 @@ def withdraw(uid, amount):
     return w
 
 async def verifyFunction(ctx):
+    """Used to check if someone has the role or not i dont actually know?"""
     guild = ctx.guild
     if "$Verified$" in [role.name for role in guild.roles]:
         role = discord.utils.get(ctx.guild.roles, name="$Verified$")
@@ -1271,18 +1393,21 @@ async def verifyFunction(ctx):
             return msg
 
 def addspace(n):
+    """Basically makes an empty string of x length for usage as a spacer"""
     w = ''
     for x in range(0, n):
         w = w + ' '
     return w
 
 def read_json(filename):
+    """Read a json file in /bot_config/"""
     jsonFile = open(str(cwd)+'/bot_config/'+filename+'.json', 'r')
     data = json.load(jsonFile)
     jsonFile.close()
     return data
 
 def write_json(data, filename):
+    """Write to a json file in the /bot_config/ directory"""
     jsonFile = open(str(cwd)+'/bot_config/'+filename+'.json', 'w+')
     jsonFile.write(json.dumps(data))
     jsonFile.close()
@@ -1318,6 +1443,7 @@ async def stats(ctx):
 @stats.command()
 @commands.is_owner()
 async def admin(ctx):
+    """Some nice admin stats surrounding the bot"""
     time = getTime()
     data = read_json('secrets')
     totalCommandUsers = data['commandUsers']
@@ -1343,29 +1469,14 @@ async def admin(ctx):
     embed.set_author(name = str(bot.user.name), icon_url = str(bot.user.avatar_url))
     await ctx.send(embed = embed)
 
-'''
-@bot.command()
-async def help(ctx):
-    embed = discord.Embed(title='Commands', description='\uFEFF', colour=ctx.author.colour)
-    embed.add_field(name='stats', value='\uFEFF')
-    embed.add_field(name='bal', value='\uFEFF')
-    embed.add_field(name='baltop', value='\uFEFF')
-    embed.add_field(name='income', value='\uFEFF')
-    embed.add_field(name='embed', value='\uFEFF')
-    embed.add_field(name='purge', value='\uFEFF')
-    embed.add_field(name='spam', value='\uFEFF')
-    embed.add_field(name='perms', value='\uFEFF')
-    embed.add_field(name='modules', value='\uFEFF')
-    embed.add_field(name='echo', value='\uFEFF')
-    embed.add_field(name='bank', value='\uFEFF')
-    await ctx.send(embed=embed)
-'''
+initial_extensions = ['cogs.music']
 
 if __name__ == '__main__':
-    for extension in extensions:
+    """If this is the 'main' file, run this code and run the bot when the script is ran"""
+    for extension in initial_extensions:
         try:
             bot.load_extension(extension)
-            print("Loaded extension {}".format(extension))
-        except Exception as error:
-            print('{} cannont be loaded. [{}]'.format(extension, error))
+        except Exception as e:
+            print(f'Failed to load extension {extension}.', file=sys.stderr)
+            traceback.print_exc()
     bot.run(bot.config_token)
