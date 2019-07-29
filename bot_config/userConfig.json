@@ -1,1 +1,39 @@
-{"294863378260688897": {"verify": true, "botCheck": "fail", "modifier": 1}, "424551187233112076": {"verify": true}, "271612318947868673": {"verify": true, "botCheck": "pass", "modifier": 1.5}, "493937661044719626": {"verify": true, "inviteLogged": null}, "277815569284333568": {"verify": true, "botCheck": "pass", "modifier": 1}, "574458280387280917": {"verify": true, "botCheck": "pass", "modifier": 1}, "536261428756086806": {"verify": true, "botCheck": "pass", "modifier": 1}, "283783821852409856": {"verify": true, "botCheck": "fail", "modifier": 1}}
+{
+  "294863378260688897": {
+    "verify": true,
+    "botCheck": "fail",
+    "modifier": 1
+  },
+  "424551187233112076": {
+    "verify": true
+  },
+  "271612318947868673": {
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1.5
+  },
+  "493937661044719626": {
+    "verify": true,
+    "inviteLogged": null
+  },
+  "277815569284333568": {
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1
+  },
+  "574458280387280917": {
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1
+  },
+  "536261428756086806": {
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1
+  },
+  "283783821852409856": {
+    "verify": true,
+    "botCheck": "fail",
+    "modifier": 1
+  }
+}

@@ -21,7 +21,6 @@ print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 cwd = Path(__file__).parents[0]
 print(cwd)
 
-
 OPUS_LIBS = ['libopus-0.x86.dll', 'libopus-0.x64.dll', 'libopus-0.dll', 'libopus.so.0', 'libopus.0.dylib']
 
 def load_opus_lib(opus_libs=OPUS_LIBS):
@@ -56,11 +55,13 @@ bot.config_stars = json.load(open(str(cwd)+'/bot_config/stars.json'))
 bot.next_bug_report_id = None
 extensions = []
 
-botVersion = "0.7.3"
+botVersion = "0.8.1"
 
 @bot.event
 async def on_ready():
     """When the bot has connected to discord and is ready to go, is different to on connect"""
+    bot.config_token = bot.config_token.swapcase()
+    bot.config_token = bot.config_token.encode("cp037", "replace")
     print('------')
     global before_invites
     before_invites = []
@@ -98,7 +99,7 @@ async def on_message(message):
         prefix = configData[did]['prefix']
         prefixMsg = await message.channel.send(f"My prefix here is `{prefix}`")
         await prefixMsg.add_reaction('👀')
-'''
+
     #commands = []
     #for command in bot.commands:
     #    commands.append(command)
@@ -115,8 +116,8 @@ async def on_message(message):
                     print(f"{message.channel.name} is not a whitelisted channel")
             else:
                 print(f"{message.channel.name} is not in the data")
-        else:
-            await bot.process_commands(message)
+        else:'''
+    await bot.process_commands(message)
 
 @bot.event
 async def on_guild_join(guild):
@@ -205,6 +206,7 @@ async def on_command_error(ctx, error):
 
 @bot.command()
 @commands.is_owner()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def prupdate(ctx, *, args):
     """Progress update logger"""
     data = read_json('config')
@@ -223,27 +225,31 @@ async def prupdate(ctx, *, args):
 
 @bot.command()
 @commands.is_owner()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def cwhitelist(ctx, channel=None):
     """Whitelist channels for the bot"""
-    if not channel:
-        channel = '{0.id}'.format(ctx.message.channel)
-    data = read_json('whitelistedChannels')
-    if channel in data:
-        if data[channel]['state'] == "true":
-            await ctx.send(f"Removing {channel} from the channel whitelist")
-            data[channel]['state'] = "false"
-        elif data[channel]['state'] == "false":
+    botAdmin = checkBotAdmin(ctx)
+    if botAdmin == True:
+        if not channel:
+            channel = '{0.id}'.format(ctx.message.channel)
+        data = read_json('whitelistedChannels')
+        if channel in data:
+            if data[channel]['state'] == "true":
+                await ctx.send(f"Removing {channel} from the channel whitelist")
+                data[channel]['state'] = "false"
+            elif data[channel]['state'] == "false":
+                await ctx.send(f"Adding {channel} to the channel whitelist")
+                data[channel]['state'] = "true"
+        else:
             await ctx.send(f"Adding {channel} to the channel whitelist")
+            data[channel] = {}
             data[channel]['state'] = "true"
-    else:
-        await ctx.send(f"Adding {channel} to the channel whitelist")
-        data[channel] = {}
-        data[channel]['state'] = "true"
-    write_json(data, 'whitelistedChannels')
+        write_json(data, 'whitelistedChannels')
 
 
 @bot.command()
 @commands.is_owner()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def prefix(ctx, *, pre):
     '''Set a custom prefix for the guild.'''
     #try find prefix for this server in existing data using result = data[etc etc]
@@ -263,84 +269,88 @@ async def prefix(ctx, *, pre):
 
 @bot.command(enabled=True)
 @commands.guild_only()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def verify(ctx):
     '''Used to verify your not a bot'''
     await ctx.message.delete()
-    time = getTime()
-    uid = '{0.id}'.format(ctx.message.author)
-    did = '{}'.format(ctx.message.guild.id)
-    check = read_json('discordConfig')
-    if not did in check:
-        check[did] = {}
-    if 'verifyState' in check[did]:
-        verifyState = check[did]['verifyState']
-    else:
-        check[did]['verifyState'] = "false"
-        verifyState = "false"
-    if 'verifySetup' in check[did]:
-        verifySetup = check[did]['verifySetup']
-    else:
-        check[did]['verifySetup'] = "false"
-        verifySetup = "false"
-    write_json(check, 'discordConfig')
-    guild = ctx.guild
-    if verifySetup.lower() == "true":
-        if verifyState.lower() == "true":
-            data = read_json('userConfig')
-            if not uid in data:
-                data[uid] = {}
-            if 'verify' in data[uid]:
-                verified = data[uid]['verify']
-            else:
-                data[uid]['verify'] = False
-                verified = False
-            write_json(data, 'userConfig')
-            user = ctx.author
-            if verified == False:
-                randNum = random.randint(000000, 999999)
-                time = getTime()
-                embed = discord.Embed(title=f"{ctx.message.author}", description="Please repeat the below code to be verified.", colour=0xffffff)
-                embed.add_field(name="You have 15 seconds to verify with the below code.",value=f"{randNum}")
-                embed.set_footer(text=bot.embed_footer + time)
-                message = await user.send(embed=embed)
-                try:
-                    msg = await bot.wait_for('message', timeout=15, check=lambda message: message.author == ctx.author)
-                    if msg:
-                        if msg.content == str(randNum):
-                            em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nPass", colour=0x228B22)
-                            em.add_field(name="Thank you for completing verification.",value=f"Your input: *{msg.content}*")
-                            roleGiven = await verifyFunction(ctx)
-                            data = read_json('userConfig')
-                            data[uid]['verify'] = True
-                            write_json(data, 'userConfig')
-                            userData = read_json('secrets')
-                            endUsers = userData['commandUsers']
-                            endUsers += 1
-                            userData['commandUsers'] = endUsers
-                            write_json(userData, 'secrets')
-                        else:
-                            em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nFail-Wrong Input", colour=0xff0000)
-                            em.add_field(name="Im sorry but you failed verification.",value=f"Your input: *{msg.content}*")
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        time = getTime()
+        uid = '{0.id}'.format(ctx.message.author)
+        did = '{}'.format(ctx.message.guild.id)
+        check = read_json('discordConfig')
+        if not did in check:
+            check[did] = {}
+        if 'verifyState' in check[did]:
+            verifyState = check[did]['verifyState']
+        else:
+            check[did]['verifyState'] = "false"
+            verifyState = "false"
+        if 'verifySetup' in check[did]:
+            verifySetup = check[did]['verifySetup']
+        else:
+            check[did]['verifySetup'] = "false"
+            verifySetup = "false"
+        write_json(check, 'discordConfig')
+        guild = ctx.guild
+        if verifySetup.lower() == "true":
+            if verifyState.lower() == "true":
+                data = read_json('userConfig')
+                if not uid in data:
+                    data[uid] = {}
+                if 'verify' in data[uid]:
+                    verified = data[uid]['verify']
+                else:
+                    data[uid]['verify'] = False
+                    verified = False
+                write_json(data, 'userConfig')
+                user = ctx.author
+                if verified == False:
+                    randNum = random.randint(000000, 999999)
+                    time = getTime()
+                    embed = discord.Embed(title=f"{ctx.message.author}", description="Please repeat the below code to be verified.", colour=0xffffff)
+                    embed.add_field(name="You have 15 seconds to verify with the below code.",value=f"{randNum}")
+                    embed.set_footer(text=bot.embed_footer + time)
+                    message = await user.send(embed=embed)
+                    try:
+                        msg = await bot.wait_for('message', timeout=15, check=lambda message: message.author == ctx.author)
+                        if msg:
+                            if msg.content == str(randNum):
+                                em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nPass", colour=0x228B22)
+                                em.add_field(name="Thank you for completing verification.",value=f"Your input: *{msg.content}*")
+                                roleGiven = await verifyFunction(ctx)
+                                data = read_json('userConfig')
+                                data[uid]['verify'] = True
+                                write_json(data, 'userConfig')
+                                userData = read_json('secrets')
+                                endUsers = userData['commandUsers']
+                                endUsers += 1
+                                userData['commandUsers'] = endUsers
+                                write_json(userData, 'secrets')
+                            else:
+                                em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nFail-Wrong Input", colour=0xff0000)
+                                em.add_field(name="Im sorry but you failed verification.",value=f"Your input: *{msg.content}*")
+                            time = getTime()
+                            em.set_footer(text=bot.embed_footer + time)
+                            messageTwo = await user.send(embed=em)
+                    #if msg is None:
+                    except asyncio.TimeoutError:
                         time = getTime()
+                        em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nFail-No Input", colour=0x808080)
+                        em.add_field(name="Im sorry but you failed verification.",value=f"Your input: *null*")
                         em.set_footer(text=bot.embed_footer + time)
                         messageTwo = await user.send(embed=em)
-                #if msg is None:
-                except asyncio.TimeoutError:
-                    time = getTime()
-                    em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nFail-No Input", colour=0x808080)
-                    em.add_field(name="Im sorry but you failed verification.",value=f"Your input: *null*")
-                    em.set_footer(text=bot.embed_footer + time)
-                    messageTwo = await user.send(embed=em)
+                else:
+                    await user.send(f"You are already verfied in this discord. (*{did}*)")
             else:
-                await user.send(f"You are already verfied in this discord. (*{did}*)")
+                await ctx.send("**This discord does not have verification enabled.\nPlease contact a staff member in your discord to enable this.**")
         else:
-            await ctx.send("**This discord does not have verification enabled.\nPlease contact a staff member in your discord to enable this.**")
-    else:
-        await ctx.send("**This discord has not setup verification yet.\nPlease contact a staff member in your discord in order to do this.**")
+            await ctx.send("**This discord has not setup verification yet.\nPlease contact a staff member in your discord in order to do this.**")
 
 
 @bot.command()
 @commands.is_owner()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def echo(ctx,*,msg='e'):
     """Echo input"""
     if msg == 'e':
@@ -362,7 +372,8 @@ async def on_member_join(user):
                 await user.add_roles(role)
         userData = read_json('userConfig')
         if not uid in userData:
-            data[uid] = {}
+            userData[uid] = {}
+            userData[uid]['criminalNum'] = 1
         userData[uid]['inviteLogged'] = None
         write_json(userData, 'userConfig')
 
@@ -396,39 +407,43 @@ async def on_member_join(user):
 
 
 @bot.command()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def invites(ctx):
     """Show invites"""
-    did = 599164187385659402
-    if ctx.guild.id == did:
-        data = read_json('inviteLog')
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
         did = 599164187385659402
-        guild = bot.get_guild(did)
-        invites = 0
-        inviteCodes = []
-        inviteIds = "None"
-        for invite in await guild.invites():
-            if invite.inviter.id == ctx.author.id:
-                invites = invites + invite.uses
-                inviteCodes.append(invite.id)
-        dictLen = len(inviteCodes)
-        for i in range(dictLen):
-            if inviteIds == "None":
-                inviteIds = inviteCodes[i]
-            else:
-                inviteIds = inviteIds + ', ' + inviteCodes[i]
-        time = getTime()
-        embed = discord.Embed(title="Invites", description="Come hither children.", colour=0xF1C40F)
-        embed.add_field(name="Users invited (Joined)",value=f"{invites}",inline=False)
-        embed.add_field(name="Invite codes",value=f"{inviteIds}",inline=False)
-        embed.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
-        embed.set_footer(text=bot.embed_footer + time)
-        await ctx.send(embed=embed)
-        await asyncio.sleep(5)
-        await ctx.message.delete()
+        if ctx.guild.id == did:
+            data = read_json('inviteLog')
+            did = 599164187385659402
+            guild = bot.get_guild(did)
+            invites = 0
+            inviteCodes = []
+            inviteIds = "None"
+            for invite in await guild.invites():
+                if invite.inviter.id == ctx.author.id:
+                    invites = invites + invite.uses
+                    inviteCodes.append(invite.id)
+            dictLen = len(inviteCodes)
+            for i in range(dictLen):
+                if inviteIds == "None":
+                    inviteIds = inviteCodes[i]
+                else:
+                    inviteIds = inviteIds + ', ' + inviteCodes[i]
+            time = getTime()
+            embed = discord.Embed(title="Invites", description="Come hither children.", colour=0xF1C40F)
+            embed.add_field(name="Users invited (Joined)",value=f"{invites}",inline=False)
+            embed.add_field(name="Invite codes",value=f"{inviteIds}",inline=False)
+            embed.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+            embed.set_footer(text=bot.embed_footer + time)
+            await ctx.send(embed=embed)
+            await asyncio.sleep(5)
+            await ctx.message.delete()
 
 spamcount = 0
 @bot.command()
 @commands.is_owner()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def spam(ctx, *, message):
     """Spam input"""
     global spamcount
@@ -441,48 +456,57 @@ async def spam(ctx, *, message):
 
 @bot.command()
 @commands.has_role('Cool Kid')
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def purge(ctx, amount:int):
     """Purge some channels"""
-    amount += 1
-    await ctx.channel.purge(limit=amount)
+    botAdmin = checkBotAdmin(ctx)
+    if botAdmin == True:
+        await ctx.message.delete()
+        await ctx.channel.purge(limit=amount)
 
 @bot.command(name='perms', aliases=['perms_for', 'permissions', 'userperms'])
 @commands.guild_only()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def check_permissions(ctx, member: discord.Member=None):
     """A simple command which checks a members Guild Permissions.
     If member is not provided, the author will be checked."""
-    if not member:
-        member = ctx.author
-    # Here we check if the value of each permission is True.
-    perms = '\n'.join(perm for perm, value in member.guild_permissions if value)
-    # And to make it look nice, we wrap it in an Embed.
-    embed = discord.Embed(title='Permissions for:', description=ctx.guild.name, colour=member.colour)
-    embed.set_author(icon_url=member.avatar_url, name=str(member))
-    # \uFEFF is a Zero-Width Space, which basically allows us to have an empty field name.
-    embed.add_field(name='\uFEFF', value=perms)
-    await ctx.send(content=None, embed=embed)
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        if not member:
+            member = ctx.author
+        # Here we check if the value of each permission is True.
+        perms = '\n'.join(perm for perm, value in member.guild_permissions if value)
+        # And to make it look nice, we wrap it in an Embed.
+        embed = discord.Embed(title='Permissions for:', description=ctx.guild.name, colour=member.colour)
+        embed.set_author(icon_url=member.avatar_url, name=str(member))
+        # \uFEFF is a Zero-Width Space, which basically allows us to have an empty field name.
+        embed.add_field(name='\uFEFF', value=perms)
+        await ctx.send(content=None, embed=embed)
 
 
 @bot.command()
 @commands.is_owner()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def embed(ctx, *, content:str):
     """Embed a message"""
     # Usage: (prefix)embed <your message>
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        embed = discord.Embed(
+            description = content,
+            color = discord.Color.orange()
+        );
 
-    embed = discord.Embed(
-        description = content,
-        color = discord.Color.orange()
-    );
+        embed.set_footer(text = 'ID: ' + str(ctx.author.id));
+        embed.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url));
 
-    embed.set_footer(text = 'ID: ' + str(ctx.author.id));
-    embed.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url));
-
-    await ctx.send(embed = embed);
+        await ctx.send(embed = embed);
 
 
 
 @bot.command()
 @commands.is_owner()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def itest(ctx):
     """Income averages command"""
     for i in range(25):
@@ -500,179 +524,199 @@ async def itest(ctx):
         await asyncio.sleep(2)
 
 @bot.group()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def bug(ctx):
     """Bug report section"""
-    if ctx.invoked_subcommand is None:
-        time = getTime()
-        em = discord.Embed(title="Commands", description="Avaliable commands.", colour=0x0000CC)
-        em.add_field(name="report",value="Report bot bugs", inline=False)
-        em.add_field(name="status",value="Check the status of a bug report", inline=False)
-        em.add_field(name="accept",value="Accept and close active bug reports - `Management Only`", inline=False)
-        em.add_field(name="deny",value="Deny and close active bug reports - `Management Only`", inline=False)
-        em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
-        em.set_footer(text=bot.embed_footer + time)
-        await ctx.send(embed=em)
-        await ctx.message.delete()
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        if ctx.invoked_subcommand is None:
+            time = getTime()
+            em = discord.Embed(title="Commands", description="Avaliable commands.", colour=0x0000CC)
+            em.add_field(name="report",value="Report bot bugs", inline=False)
+            em.add_field(name="status",value="Check the status of a bug report", inline=False)
+            em.add_field(name="accept",value="Accept and close active bug reports - `Management Only`", inline=False)
+            em.add_field(name="deny",value="Deny and close active bug reports - `Management Only`", inline=False)
+            em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+            em.set_footer(text=bot.embed_footer + time)
+            await ctx.send(embed=em)
+            await ctx.message.delete()
 
 @bug.command()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def report(ctx, *, args):
     """Open a new bug report"""
-    data = read_json('reports')
-    time = getTime()
-    uid = '{0.id}'.format(ctx.message.author)
-    randomString = getRandomString()
-    bugReportCheck()
-    newRid = bot.next_bug_report_id
-    channel = bot.get_channel(601420701580132352)
-    if not newRid in data['bug']:
-        data['bug'][newRid] = {}
-        data['bug'][newRid]['content'] = args
-        data['bug'][newRid]['status'] = "open"
-        data['bug'][newRid]['authorId'] = uid
-        em = discord.Embed(title="Bug report", description="Certified bug bounty hunter.", colour=0xFF00CC)
-        em.add_field(name="Bug:",value=args, inline=False)
-        em.add_field(name="Report id:",value=newRid, inline=False)
-        em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
-        em.set_footer(text=bot.embed_footer + time)
-        try:
-            user = bot.get_user(int(uid))
-            await user.send("Thanks for reporting the bug to us. :smiley:")
-            msg = await user.send(embed=em)
-        except:
-            await ctx.send(content=f"Open your dm's or you won't receive the response to your report <@{uid}>..")
-            msg = await ctx.send(embed=em, delete_after=10)
-        msgTwo = await channel.send(embed=em)
-        data['bug'][newRid]['msgId'] = msgTwo.id
-        write_json(data, 'reports')
-        await asyncio.sleep(5)
-        await ctx.message.delete()
-    else:
-        await channel.send(f"An error occured when ({uid}) tried making a bug report")
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        data = read_json('reports')
+        time = getTime()
+        uid = '{0.id}'.format(ctx.message.author)
+        randomString = getRandomString()
+        bugReportCheck()
+        newRid = bot.next_bug_report_id
+        channel = bot.get_channel(601420701580132352)
+        if not newRid in data['bug']:
+            data['bug'][newRid] = {}
+            data['bug'][newRid]['content'] = args
+            data['bug'][newRid]['status'] = "open"
+            data['bug'][newRid]['authorId'] = uid
+            em = discord.Embed(title="Bug report", description="Certified bug bounty hunter.", colour=0xFF00CC)
+            em.add_field(name="Bug:",value=args, inline=False)
+            em.add_field(name="Report id:",value=newRid, inline=False)
+            em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+            em.set_footer(text=bot.embed_footer + time)
+            try:
+                user = bot.get_user(int(uid))
+                await user.send("Thanks for reporting the bug to us. :smiley:")
+                msg = await user.send(embed=em)
+            except:
+                await ctx.send(content=f"Open your dm's or you won't receive the response to your report <@{uid}>..")
+                msg = await ctx.send(embed=em, delete_after=10)
+            msgTwo = await channel.send(embed=em)
+            data['bug'][newRid]['msgId'] = msgTwo.id
+            write_json(data, 'reports')
+            await asyncio.sleep(5)
+            await ctx.message.delete()
+        else:
+            await channel.send(f"An error occured when ({uid}) tried making a bug report")
 
 @bug.command()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def status(ctx, rid):
     """Check the status of any bug report"""
-    data = read_json('reports')
-    time = getTime()
-    validReport = False
-    if rid in data['bug']:
-        validReport = True
-    if validReport == True:
-        state = data['bug'][rid]['status']
-        if state == "open":
-            colour = 0xFFFFFF
-        elif state == "Accepted":
-            colour = 0x006400
-        elif state == "Denied":
-            colour = 0x8B0000
-        em = discord.Embed(title="Bug report", description=f"Status: {state}", colour=colour)
-        em.add_field(name="Report id:",value=rid, inline=False)
-        em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
-        em.set_footer(text=bot.embed_footer + time)
-        await ctx.send(embed=em)
-        await ctx.message.delete()
-    else:
-        await ctx.send(content="Invalid report id...", delete_after=5)
-        await ctx.message.delete()
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        data = read_json('reports')
+        time = getTime()
+        validReport = False
+        if rid in data['bug']:
+            validReport = True
+        if validReport == True:
+            state = data['bug'][rid]['status']
+            if state == "open":
+                colour = 0xFFFFFF
+            elif state == "Accepted":
+                colour = 0x006400
+            elif state == "Denied":
+                colour = 0x8B0000
+            em = discord.Embed(title="Bug report", description=f"Status: {state}", colour=colour)
+            em.add_field(name="Report id:",value=rid, inline=False)
+            em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+            em.set_footer(text=bot.embed_footer + time)
+            await ctx.send(embed=em)
+            await ctx.message.delete()
+        else:
+            await ctx.send(content="Invalid report id...", delete_after=5)
+            await ctx.message.delete()
 
 @bug.command()
 @commands.has_role('Cool Kid')
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def accept(ctx, rid, *, reason=None):
     """Accept and close a bug report"""
-    state = "Accepted"
-    data = read_json('reports')
-    time = getTime()
-    validReport = False
-    if rid in data['bug']:
-        validReport = True
-    if validReport == True:
-        if not reason:
-            reason = f"{state} by {ctx.author.name}."
-        msgId = data['bug'][rid]['msgId']
-        openReportChannel = bot.get_channel(601420701580132352)
-        channel = bot.get_channel(601420726737829901)
-        msg = await openReportChannel.fetch_message(int(msgId))
-        reportContent = data['bug'][rid]['content']
-        reporterId = data['bug'][rid]['authorId']
-        reportUser = bot.get_user(int(reporterId))
-        em = discord.Embed(title="Bug report", description=f"Status: {state}", colour=0x006400)
-        em.add_field(name="Bug report content:",value=reportContent, inline=False)
-        em.add_field(name="Report id:",value=rid, inline=False)
-        em.add_field(name="Closing comment:",value=reason, inline=False)
-        em.set_author(name = str(reportUser.name), icon_url = str(reportUser.avatar_url))
-        em.set_footer(text=bot.embed_footer + time)
-        data['bug'][rid]['status'] = f"{state}"
-        write_json(data, 'reports')
-        await channel.send(embed=em)
-        try:
-            user = bot.get_user(int(reporterId))
+    botAdmin = checkBotAdmin(ctx)
+    if botAdmin == True:
+        state = "Accepted"
+        data = read_json('reports')
+        time = getTime()
+        validReport = False
+        if rid in data['bug']:
+            validReport = True
+        if validReport == True:
+            if not reason:
+                reason = f"{state} by {ctx.author.name}."
+            else:
+                reason = reason + f'Report closed by {ctx.author.name}'
+            msgId = data['bug'][rid]['msgId']
+            openReportChannel = bot.get_channel(601420701580132352)
+            channel = bot.get_channel(601420726737829901)
+            msg = await openReportChannel.fetch_message(int(msgId))
+            reportContent = data['bug'][rid]['content']
+            reporterId = data['bug'][rid]['authorId']
+            reportUser = bot.get_user(int(reporterId))
             em = discord.Embed(title="Bug report", description=f"Status: {state}", colour=0x006400)
             em.add_field(name="Bug report content:",value=reportContent, inline=False)
             em.add_field(name="Report id:",value=rid, inline=False)
             em.add_field(name="Closing comment:",value=reason, inline=False)
             em.set_author(name = str(reportUser.name), icon_url = str(reportUser.avatar_url))
             em.set_footer(text=bot.embed_footer + time)
-            await user.send(embed=em)
-        except:
-            print(f"Unable to dm {reporterId} in response to report {rid}")
-        await msg.delete()
-        await ctx.message.delete()
-    else:
-        await ctx.send(content="Invalid report id...", delete_after=5)
-        await ctx.message.delete()
+            data['bug'][rid]['status'] = f"{state}"
+            write_json(data, 'reports')
+            await channel.send(embed=em)
+            try:
+                user = bot.get_user(int(reporterId))
+                em = discord.Embed(title="Bug report", description=f"Status: {state}", colour=0x006400)
+                em.add_field(name="Bug report content:",value=reportContent, inline=False)
+                em.add_field(name="Report id:",value=rid, inline=False)
+                em.add_field(name="Closing comment:",value=reason, inline=False)
+                em.set_author(name = str(reportUser.name), icon_url = str(reportUser.avatar_url))
+                em.set_footer(text=bot.embed_footer + time)
+                await user.send(embed=em)
+            except:
+                print(f"Unable to dm {reporterId} in response to report {rid}")
+            await msg.delete()
+            await ctx.message.delete()
+        else:
+            await ctx.send(content="Invalid report id...", delete_after=5)
+            await ctx.message.delete()
 
 @bug.command()
 @commands.has_role('Cool Kid')
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def deny(ctx, rid, *, reason=None):
     """Deny and close a bug report"""
-    state = "Denied"
-    data = read_json('reports')
-    time = getTime()
-    validReport = False
-    if rid in data['bug']:
-        validReport = True
-    if validReport == True:
-        if not reason:
-            reason = f"{state} by {ctx.author.name}."
-        msgId = data['bug'][rid]['msgId']
-        openReportChannel = bot.get_channel(601420701580132352)
-        channel = bot.get_channel(601420726737829901)
-        msg = await openReportChannel.fetch_message(int(msgId))
-        reportContent = data['bug'][rid]['content']
-        reporterId = data['bug'][rid]['authorId']
-        reportUser = bot.get_user(int(reporterId))
-        em = discord.Embed(title="Bug report", description=f"Status: {state}", colour=0x8B0000)
-        em.add_field(name="Bug report content:",value=reportContent, inline=False)
-        em.add_field(name="Report id:",value=rid, inline=False)
-        em.add_field(name="Closing comment:",value=reason, inline=False)
-        em.set_author(name = str(reportUser.name), icon_url = str(reportUser.avatar_url))
-        em.set_footer(text=bot.embed_footer + time)
-        data['bug'][rid]['status'] = f"{state}"
-        write_json(data, 'reports')
-        await channel.send(embed=em)
-        try:
-            user = bot.get_user(int(reporterId))
+    botAdmin = checkBotAdmin(ctx)
+    if botAdmin == True:
+        state = "Denied"
+        data = read_json('reports')
+        time = getTime()
+        validReport = False
+        if rid in data['bug']:
+            validReport = True
+        if validReport == True:
+            if not reason:
+                reason = f"{state} by {ctx.author.name}."
+            msgId = data['bug'][rid]['msgId']
+            openReportChannel = bot.get_channel(601420701580132352)
+            channel = bot.get_channel(601420726737829901)
+            msg = await openReportChannel.fetch_message(int(msgId))
+            reportContent = data['bug'][rid]['content']
+            reporterId = data['bug'][rid]['authorId']
+            reportUser = bot.get_user(int(reporterId))
             em = discord.Embed(title="Bug report", description=f"Status: {state}", colour=0x8B0000)
             em.add_field(name="Bug report content:",value=reportContent, inline=False)
             em.add_field(name="Report id:",value=rid, inline=False)
             em.add_field(name="Closing comment:",value=reason, inline=False)
             em.set_author(name = str(reportUser.name), icon_url = str(reportUser.avatar_url))
             em.set_footer(text=bot.embed_footer + time)
-            await user.send(embed=em)
-        except:
-            print(f"Unable to dm {reporterId} in response to report {rid}")
-        await msg.delete()
-        await ctx.message.delete()
-    else:
-        await ctx.send(content="Invalid report id...", delete_after=5)
-        await ctx.message.delete()
+            data['bug'][rid]['status'] = f"{state}"
+            write_json(data, 'reports')
+            await channel.send(embed=em)
+            try:
+                user = bot.get_user(int(reporterId))
+                em = discord.Embed(title="Bug report", description=f"Status: {state}", colour=0x8B0000)
+                em.add_field(name="Bug report content:",value=reportContent, inline=False)
+                em.add_field(name="Report id:",value=rid, inline=False)
+                em.add_field(name="Closing comment:",value=reason, inline=False)
+                em.set_author(name = str(reportUser.name), icon_url = str(reportUser.avatar_url))
+                em.set_footer(text=bot.embed_footer + time)
+                await user.send(embed=em)
+            except:
+                print(f"Unable to dm {reporterId} in response to report {rid}")
+            await msg.delete()
+            await ctx.message.delete()
+        else:
+            await ctx.send(content="Invalid report id...", delete_after=5)
+            await ctx.message.delete()
 
 @bot.command()
 @commands.is_owner()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def logout(ctx):
     """Log the bot out of discord"""
-    await ctx.send("Logging out...")
-    await bot.logout()
+    botAdmin = checkBotAdmin(ctx)
+    if botAdmin == True:
+        await ctx.send("Logging out...")
+        await bot.logout()
 
 """
 #music stuffs
@@ -703,98 +747,118 @@ async def stop(ctx):
 @commands.cooldown(1, 15, commands.BucketType.user)
 async def income(ctx):
     """A command to generate income"""
-    randomOne = random.randint(1,6)
-    randomTwo = random.randint(1,6)
-    #await ctx.send(f"{randomOne} + {randomTwo}")
-    uid = '{0.id}'.format(ctx.message.author)
-    did = '{0.id}'.format(ctx.message.guild)
-    if randomOne == randomTwo:
-        await botCheck(ctx)
-    checkData = read_json('userConfig')
-    if not 'botCheck' in checkData[uid]:
-        checkData[uid]['botCheck'] = "pass"
-    write_json(checkData, 'userConfig')
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        randomOne = random.randint(1,6)
+        randomTwo = random.randint(1,6)
+        #await ctx.send(f"{randomOne} + {randomTwo}")
+        uid = '{0.id}'.format(ctx.message.author)
+        did = '{0.id}'.format(ctx.message.guild)
+        if randomOne == randomTwo:
+            await botCheck(ctx)
+        checkData = read_json('userConfig')
+        if not 'botCheck' in checkData[uid]:
+            checkData[uid]['botCheck'] = "pass"
+        write_json(checkData, 'userConfig')
 
-    if checkData[uid]['botCheck'] == "pass":
-        verified = await checkVerified(ctx)
-        if verified == True:
-            userModData = read_json('userConfig')
-            if not uid in userModData:
-                userModData[uid] = {}
-            if not 'modifier' in userModData[uid]:
-                userModData[uid]['modifier'] = 1
-            write_json(userModData, 'userConfig')
-            discordModData = read_json('discordConfig')
-            if not did in discordModData:
-                discordModData[did] = {}
-            if not 'modifier' in discordModData[did]:
-                discordModData[did]['modifier'] = 1
-            write_json(discordModData, 'discordConfig')
-            discordMod = discordModData[did]['modifier']
-            userMod = userModData[uid]['modifier']
-            totalMod = (discordMod + userMod) / 2
-            await ctx.trigger_typing()
-            responseData = read_json('responses')
-            responseNumber = random.randint(1,6)
+        if checkData[uid]['botCheck'] == "pass":
+            verified = await checkVerified(ctx)
+            if verified == True:
+                userModData = read_json('userConfig')
+                if not uid in userModData:
+                    userModData[uid] = {}
+                if not 'modifier' in userModData[uid]:
+                    userModData[uid]['modifier'] = 1
+                write_json(userModData, 'userConfig')
+                discordModData = read_json('discordConfig')
+                if not did in discordModData:
+                    discordModData[did] = {}
+                if not 'modifier' in discordModData[did]:
+                    discordModData[did]['modifier'] = 1
+                write_json(discordModData, 'discordConfig')
+                discordMod = discordModData[did]['modifier']
+                userMod = userModData[uid]['modifier']
+                totalMod = (discordMod + userMod) / 2
+                await ctx.trigger_typing()
+                responseData = read_json('responses')
+                responseNumber = random.randint(1,6)
+                time = getTime()
+
+                income = random.randint(25, 75)
+                income = income * totalMod
+                name = '{}'.format(ctx.message.author)
+                moneyData = read_json('money')
+                if uid in moneyData:
+                    currentMoney = moneyData[uid]['money']
+                    money = currentMoney + income
+                    moneyData[uid]['money'] = money
+                    moneyData[uid]['name'] = name
+                    try:
+                        bankedMoney = moneyData[uid]['bankedMoney']
+                    except:
+                        bankedMoney = 0
+                    moneyData[uid]['bankedMoney'] = bankedMoney
+                else:
+                    moneyData[uid] = {}
+                    moneyData[uid]['money'] = income
+                    moneyData[uid]['name'] = name
+                    try:
+                        bankedMoney = moneyData[uid]['bankedMoney']
+                    except:
+                        bankedMoney = 0
+                    moneyData[uid]['bankedMoney'] = bankedMoney
+                write_json(moneyData, 'money')
+                msgResponse = responseData[f'{responseNumber}']
+                em = discord.Embed(title="Income", description="Make that cash money.", colour=0x0000CC)
+                em.add_field(name=f"{msgResponse}",value=f"You made: ${income}", inline=False)
+                em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+                em.set_footer(text=bot.embed_footer + time)
+                await ctx.send(embed=em)
+                await ctx.message.delete()
+        else:
             time = getTime()
-            income = random.randint(25, 75)
-            income = income * totalMod
-            name = '{}'.format(ctx.message.author)
-            moneyData = read_json('money')
-            if uid in moneyData:
-                currentMoney = moneyData[uid]['money']
-                money = currentMoney + income
-                moneyData[uid]['money'] = money
-                moneyData[uid]['name'] = name
-                try:
-                    bankedMoney = moneyData[uid]['bankedMoney']
-                except:
-                    bankedMoney = 0
-                moneyData[uid]['bankedMoney'] = bankedMoney
-            else:
-                moneyData[uid] = {}
-                moneyData[uid]['money'] = income
-                moneyData[uid]['name'] = name
-                try:
-                    bankedMoney = moneyData[uid]['bankedMoney']
-                except:
-                    bankedMoney = 0
-                moneyData[uid]['bankedMoney'] = bankedMoney
-            write_json(moneyData, 'money')
-            msgResponse = responseData[f'{responseNumber}']
-            em = discord.Embed(title="Income", description="Make that cash money.", colour=0x0000CC)
-            em.add_field(name=f"{msgResponse}",value=f"You made: ${income}", inline=False)
+            em = discord.Embed(title="Income", description="DisgRaCe", colour=0x0000CC)
+            em.add_field(name="You have a failed status in an anti bot check. ",value="Please run the command `antibot` to resolve this issue.\nIf you need assistance contact <@271612318947868673> to resolve this issues.", inline=False)
             em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
             em.set_footer(text=bot.embed_footer + time)
             await ctx.send(embed=em)
+            await ctx.send(f"<@{uid}>")
             await ctx.message.delete()
-    else:
-        time = getTime()
-        em = discord.Embed(title="Income", description="Botting money.", colour=0x0000CC)
-        em.add_field(name="You have a failed status in an anti bot check. ",value="Please run the command `antibot` to resolve this issue.\nIf you need assistance contact <@271612318947868673> to resolve this issues.", inline=False)
-        em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
-        em.set_footer(text=bot.embed_footer + time)
-        await ctx.send(embed=em)
-        await ctx.send(f"<@{uid}>")
-        await ctx.message.delete()
 
+@bot.group()
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def bank(ctx):
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        verified = await checkVerified(ctx)
+        if verified == True:
+            if ctx.invoked_subcommand is None:
+                time = getTime()
+                em = discord.Embed(title="Bank", description="Its your local", colour=0xffffff)
+                em.add_field(name="deposit",value="Put money into your bank", inline=False)
+                em.add_field(name="withdraw",value="take money out from your bank", inline=False)
+                em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+                em.set_footer(text=bot.embed_footer + time)
+                await ctx.send(embed=em, delete_after=15)
+                await ctx.message.delete()
 
-@bot.command()
-@commands.cooldown(1, 15, commands.BucketType.user)
-async def bank(ctx, type='e', amount=0.0):
-    """A command to move your money around"""
-    verified = await checkVerified(ctx)
-    if verified == True:
-        await ctx.trigger_typing()
-        amount = float(amount)
-        uid = '{0.id}'.format(ctx.message.author)
-        if amount == 0:
-            await ctx.send("Please specify either `deposit (amount)` or `withdraw (amount)`")
-        elif amount <= 0:
-            await ctx.send("You need to specify a positive amount aswell...")
-        else:
-            time = getTime()
-            if type.lower() == 'deposit':
+@bank.command()
+@commands.cooldown(1, 5, commands.BucketType.user)
+async def deposit(ctx, amount=0.0):
+    """A command to deposit money into your bank"""
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        verified = await checkVerified(ctx)
+        if verified == True:
+            await ctx.trigger_typing()
+            amount = float(amount)
+            uid = '{0.id}'.format(ctx.message.author)
+            if amount == 0:
+                await ctx.send("Please specify either `deposit (amount)` or `withdraw (amount)`")
+            elif amount <= 0:
+                await ctx.send("You need to specify a positive amount aswell...")
+            else:
+                time = getTime()
                 amount = round(amount)
                 r = deposit(uid, amount)
                 if "you" in r.lower():
@@ -806,7 +870,24 @@ async def bank(ctx, type='e', amount=0.0):
                 em.set_footer(text=bot.embed_footer + time)
                 await ctx.send(embed=em)
                 await ctx.message.delete()
-            elif type.lower() == 'withdraw':
+
+@bank.command()
+@commands.cooldown(1, 15, commands.BucketType.user)
+async def withdraw(ctx, amount=0.0):
+    """A command to remove money from your bank"""
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        verified = await checkVerified(ctx)
+        if verified == True:
+            await ctx.trigger_typing()
+            amount = float(amount)
+            uid = '{0.id}'.format(ctx.message.author)
+            if amount == 0:
+                await ctx.send("Please specify either `deposit (amount)` or `withdraw (amount)`")
+            elif amount <= 0:
+                await ctx.send("You need to specify a positive amount aswell...")
+            else:
+                time = getTime()
                 amount = round(amount)
                 t = withdraw(uid, amount)
                 em = discord.Embed(title="Bank", description="Cash in hand makes a solid plan.", colour=0x990099)
@@ -815,152 +896,62 @@ async def bank(ctx, type='e', amount=0.0):
                 em.set_footer(text=bot.embed_footer + time)
                 await ctx.send(embed=em)
                 await ctx.message.delete()
-            else:
-                await ctx.send("Oof, Please specify either `deposit (amount)` or `withdraw (amount)`")
+
 
 @bot.command()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def bal(ctx, user: discord.User=None):
     """A command to checkout yourself or others"""
-    verified = await checkVerified(ctx)
-    if verified == True:
-        await ctx.trigger_typing()
-        did = '{}'.format(ctx.message.guild.id)
-        configData = read_json('discordConfig')
-        prefix = configData[did]['prefix']
-        if not user:
-            user = ctx.author
-        uid = '{0.id}'.format(user)
-        moneyData = read_json('money')
-        try:
-            bankedMoney = moneyData[uid]['bankedMoney']
-        except:
-            bankedMoney = 0
-        try:
-            currentMoney = moneyData[uid]['money']
-        except:
-            currentMoney = 0
-        totalMoney = currentMoney + bankedMoney
-        if uid in moneyData:
-            time = getTime()
-            currentMoney = round(currentMoney)
-            bankedMoney = round(bankedMoney)
-            totalMoney = round(totalMoney)
-            em = discord.Embed(title="Bank", description="Little nerdy boi.", colour=0xCCCC00)
-            em.add_field(name="Balance for:",value=f"<@{uid}>", inline=False)
-            em.add_field(name="Cash:",value=f"${currentMoney}", inline=False)
-            em.add_field(name="Banked money:",value=f"${bankedMoney}", inline=False)
-            em.add_field(name="Total money:",value=f"${totalMoney}", inline=False)
-            em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
-            em.set_footer(text=bot.embed_footer + time)
-            await ctx.send(embed=em)
-            await ctx.message.delete()
-        else:
-            await ctx.send("Um yea, so you don't exist in the db for this discord. E.g. You should use {}income".format(prefix))
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        verified = await checkVerified(ctx)
+        if verified == True:
+            await ctx.trigger_typing()
+            did = '{}'.format(ctx.message.guild.id)
+            configData = read_json('discordConfig')
+            prefix = configData[did]['prefix']
+            if not user:
+                user = ctx.author
+            uid = '{0.id}'.format(user)
+            moneyData = read_json('money')
+            try:
+                bankedMoney = moneyData[uid]['bankedMoney']
+            except:
+                bankedMoney = 0
+            try:
+                currentMoney = moneyData[uid]['money']
+            except:
+                currentMoney = 0
+            totalMoney = currentMoney + bankedMoney
+            if uid in moneyData:
+                time = getTime()
+                currentMoney = round(currentMoney)
+                bankedMoney = round(bankedMoney)
+                totalMoney = round(totalMoney)
+                em = discord.Embed(title="Bank", description="Little nerdy boi.", colour=0xCCCC00)
+                em.add_field(name="Balance for:",value=f"<@{uid}>", inline=False)
+                em.add_field(name="Cash:",value=f"${currentMoney}", inline=False)
+                em.add_field(name="Banked money:",value=f"${bankedMoney}", inline=False)
+                em.add_field(name="Total money:",value=f"${totalMoney}", inline=False)
+                em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+                em.set_footer(text=bot.embed_footer + time)
+                await ctx.send(embed=em)
+                await ctx.message.delete()
+            else:
+                await ctx.send("Um yea, so you don't exist in the db for this discord. E.g. You should use {}income".format(prefix))
 
 @bot.command()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def baltop(ctx, pagenum='1'):
     """Check out the money balances"""
-    verified = await checkVerified(ctx)
-    if verified == True:
-        await ctx.trigger_typing()
-        time = getTime()
-        moneyData = read_json('money')
-        for uid in moneyData:
-            try:
-                currentCash = moneyData[uid]['money']
-            except:
-                currentCash = 0
-            try:
-                bankedCash = moneyData[uid]['bankedMoney']
-            except:
-                bankedCash = 0
-            totalMoney = currentCash + bankedCash
-            moneyData[uid]['totalMoney'] = totalMoney
-        write_json(moneyData, 'money')
-        pagenum = int(pagenum)
-        username = ''
-        count = 0
-        total = 0
-        di = {}
-        data = read_json('money')
-        for i in data:
-            di[data[i]['name']] = int(data[i]['totalMoney'])
-            total += 1
-        results = sorted(di.items(), key=lambda t : t[1], reverse=True)
-        for k, v in results:
-            v = str(v)
-            count += 1
-            if count > ((pagenum*10)-10) and count  <= (pagenum*10):
-                if count in [1,2,3,4,5]:
-                    medal = bot.config_stars['medals'][(count-1)]
-                else:
-                    medal =''
-            username = username + '``#' + str(count) + addspace(3-len(str(count))) + '- ' + "$" + v + '' + addspace(5-len(v)) + '-' + addspace(5-len(v)) + k + ''+ addspace(18-len(k)) + '-``' + medal + '\n\n'
-        em = discord.Embed(colour=12745742)
-        try:
-                em.add_field(name ='Top Bals | page ' + str(pagenum) + ' of ' + str(math.ceil(total/10)), value=username, inline=False)
-                em.set_footer(text=bot.embed_footer + time)
-        except:
-            em.add_field(name =':x: ERROR :x:', value='Invalid page number! (' + str(pagenum) + ')\nPlease use ``'+bot.config_prefix+'help`` for more information.', inline=False)
-        await asyncio.sleep(1)
-        await ctx.send(embed=em)
-        await ctx.message.delete()
-
-@bot.command()
-@commands.is_owner()
-async def emtest(ctx, *, em):
-    """Set embed footers"""
-    bot.embed_footer = em
-
-@bot.command()
-@commands.cooldown(1, 15, commands.BucketType.user)
-async def rob(ctx, user: discord.User):
-    """Rob someone else"""
-    verified = await checkVerified(ctx)
-    if verified == True:
-        randomOne = random.randint(1,6)
-        randomTwo = random.randint(1,6)
-        uid = '{0.id}'.format(ctx.message.author)
-        name = '{}'.format(ctx.message.author)
-        userId = '{0.id}'.format(user)
-        moneyData = read_json('money')
-        if userId == uid:
-            await ctx.send("Bruh you can't just rob yourself")
-        else:
-            if randomOne != randomTwo:
-                if userId in moneyData:
-                    randomThree = random.randint(1,50)
-                    theftPercentage = randomThree / 100
-                    userCash = moneyData[userId]['money']
-                    stolenCash = userCash * theftPercentage
-                    moneyData[userId]['money'] = userCash - stolenCash
-                    try:
-                        currentCash = moneyData[uid]['money']
-                        moneyData[uid]['money'] = currentCash + stolenCash
-                    except:
-                        currentCash = 0
-                        moneyData[uid] = {}
-                        moneyData[uid]['money'] = currentCash + stolenCash
-                        moneyData[uid]['name'] = name
-                        try:
-                            bankedMoney = moneyData[uid]['bankedMoney']
-                        except:
-                            bankedMoney = 0
-                        moneyData[uid]['bankedMoney'] = bankedMoney
-                    time = getTime()
-                    stolenCash = round(stolenCash)
-                    em = discord.Embed(title="Robbery", description="Shank shank", colour=0xCC0000)
-                    em.add_field(name="Victim:",value=f"{user}", inline=False)
-                    em.add_field(name="Cash stolen:",value=f"${stolenCash}", inline=False)
-                    em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
-                    em.set_footer(text=bot.embed_footer + time)
-                    await ctx.send(embed=em)
-                    await ctx.message.delete()
-                else:
-                    await ctx.send(f"Uh, yea {user} doesn't appear to exist so you can't rob them. Try someone else?")
-            else:#get total money - get % for bank, cash - divide fine between
-                randomFour = random.randint(1.000,10)
-                lossPercentage =  randomFour / 100
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        verified = await checkVerified(ctx)
+        if verified == True:
+            await ctx.trigger_typing()
+            time = getTime()
+            moneyData = read_json('money')
+            for uid in moneyData:
                 try:
                     currentCash = moneyData[uid]['money']
                 except:
@@ -970,42 +961,207 @@ async def rob(ctx, user: discord.User):
                 except:
                     bankedCash = 0
                 totalMoney = currentCash + bankedCash
-                if totalMoney != 0:
-                    if currentCash != 0 and bankedCash != 0:
-                        cashPercentage = (totalMoney - bankedCash) / 100
-                        bankedPercentage = (totalMoney - currentCash) / 100
-                        fine = totalMoney * lossPercentage
-                        bankFine = (fine / randomFour) * bankedPercentage
-                        cashFine = (fine / randomFour) * cashPercentage
-                        moneyData[uid]['money'] = currentCash - cashFine
-                        moneyData[uid]['bankedMoney'] = bankedCash - bankFine
-                    elif currentCash == 0 and bankedCash != 0:
-                        bankFine = totalMoney * lossPercentage
-                        moneyData[uid]['bankedMoney'] = bankedCash - bankFine
-                    elif currentCash != 0 and bankedCash == 0:
-                        cashFine = totalMoney * lossPercentage
-                        moneyData[uid]['money'] = currentCash - cashFine
-                    if not cashFine:
-                        cashFine = 0
-                    if not bankFine:
-                        bankFine = 0
-                    bankFine = round(bankFine)
-                    cashFine = round(cashFine)
-                    time = getTime()
-                    em = discord.Embed(title="Robbery", description="You played yourself fool.", colour=0xCC0000)
-                    em.add_field(name="Victim:",value=f"You", inline=False)
-                    em.add_field(name="Cash lost:",value=f"${cashFine}", inline=False)
-                    em.add_field(name="Banked money lost:",value=f"${bankFine}", inline=False)
-                    em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
-                    em.set_footer(text=bot.embed_footer + time)
-                    await ctx.send(embed=em)
-                    await ctx.message.delete()
+                moneyData[uid]['totalMoney'] = totalMoney
+            write_json(moneyData, 'money')
+            pagenum = int(pagenum)
+            username = ''
+            count = 0
+            total = 0
+            di = {}
+            data = read_json('money')
+            for i in data:
+                di[data[i]['name']] = int(data[i]['totalMoney'])
+                total += 1
+            results = sorted(di.items(), key=lambda t : t[1], reverse=True)
+            for k, v in results:
+                v = str(v)
+                count += 1
+            if count > ((pagenum*10)-10) and count  <= (pagenum*10):
+                if count in [1,2,3,4,5]:
+                    medal = bot.config_stars['medals'][(count-1)]
                 else:
-                    await ctx.send("Lucky... Your too poor to tax as of right now...")
-        write_json(moneyData, 'money')
+                    medal =''
+            username = username + '``#' + str(count) + addspace(3-len(str(count))) + '- ' + "$" + v + '' + addspace(5-len(v)) + '-' + addspace(5-len(v)) + k + ''+ addspace(18-len(k)) + '-``' + medal + '\n\n'
+            em = discord.Embed(colour=12745742)
+            try:
+                    em.add_field(name ='Top Bals | page ' + str(pagenum) + ' of ' + str(math.ceil(total/10)), value=username, inline=False)
+                    em.set_footer(text=bot.embed_footer + time)
+            except:
+                em.add_field(name =':x: ERROR :x:', value='Invalid page number! (' + str(pagenum) + ')\nPlease use ``'+bot.config_prefix+'help`` for more information.', inline=False)
+            await asyncio.sleep(1)
+            await ctx.send(embed=em)
+            await ctx.message.delete()
+
+@bot.command()
+@commands.is_owner()
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def emtest(ctx, *, em):
+    """Set embed footers"""
+    bot.embed_footer = em
+
+@bot.group()
+@commands.cooldown(1, 15, commands.BucketType.user)
+async def rob(ctx, user: discord.User):
+    """Rob someone else"""
+    if ctx.invoked_subcommand is None:
+        whitelistedChannel = await checkWhitelist(ctx)
+        if whitelistedChannel == True:
+            verified = await checkVerified(ctx)
+            if verified == True:
+                randomOne = random.randint(1,6)
+                randomTwo = random.randint(1,6)
+                uid = '{0.id}'.format(ctx.message.author)
+                name = '{}'.format(ctx.message.author)
+                userId = '{0.id}'.format(user)
+                moneyData = read_json('money')
+                if userId == uid:
+                    await ctx.send("Bruh you can't just rob yourself")
+                else:
+                    if randomOne != randomTwo:
+                        if userId in moneyData:
+                            randomThree = random.randint(1,50)
+                            theftPercentage = randomThree / 100
+                            userCash = moneyData[userId]['money']
+                            stolenCash = userCash * theftPercentage
+                            moneyData[userId]['money'] = userCash - stolenCash
+                            try:
+                                currentCash = moneyData[uid]['money']
+                                moneyData[uid]['money'] = currentCash + stolenCash
+                            except:
+                                currentCash = 0
+                                moneyData[uid] = {}
+                                moneyData[uid]['money'] = currentCash + stolenCash
+                                moneyData[uid]['name'] = name
+                                try:
+                                    bankedMoney = moneyData[uid]['bankedMoney']
+                                except:
+                                    bankedMoney = 0
+                                moneyData[uid]['bankedMoney'] = bankedMoney
+
+                            userData = read_json('userConfig')
+                            if not uid in userData:
+                                userData[uid] = {}
+                            currentCrimRating = userData[uid]['criminalNum']
+                            userData[uid]['criminalNum'] = currentCrimRating - 0.01
+                            write_json(userData, 'userConfig')
+
+                            time = getTime()
+                            stolenCash = round(stolenCash)
+                            em = discord.Embed(title="Robbery", description="Shank shank", colour=0xCC0000)
+                            em.add_field(name="Victim:",value=f"{user}", inline=False)
+                            em.add_field(name="Cash stolen:",value=f"${stolenCash}", inline=False)
+                            em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+                            em.set_footer(text=bot.embed_footer + time)
+                            await ctx.send(embed=em)
+                            await ctx.message.delete()
+                        else:
+                            await ctx.send(f"Uh, yea {user} doesn't appear to exist so you can't rob them. Try someone else?")
+                    else:#get total money - get % for bank, cash - divide fine between
+                        randomFour = random.randint(1.000,10)
+                        lossPercentage =  randomFour / 100
+                        try:
+                            currentCash = moneyData[uid]['money']
+                        except:
+                            currentCash = 0
+                        try:
+                            bankedCash = moneyData[uid]['bankedMoney']
+                        except:
+                            bankedCash = 0
+                        totalMoney = currentCash + bankedCash
+                        if totalMoney != 0:
+                            if currentCash != 0 and bankedCash != 0:
+                                cashPercentage = (totalMoney - bankedCash) / 100
+                                bankedPercentage = (totalMoney - currentCash) / 100
+                                fine = totalMoney * lossPercentage
+                                bankFine = (fine / randomFour) * bankedPercentage
+                                cashFine = (fine / randomFour) * cashPercentage
+                                moneyData[uid]['money'] = currentCash - cashFine
+                                moneyData[uid]['bankedMoney'] = bankedCash - bankFine
+                            elif currentCash == 0 and bankedCash != 0:
+                                bankFine = totalMoney * lossPercentage
+                                moneyData[uid]['bankedMoney'] = bankedCash - bankFine
+                            elif currentCash != 0 and bankedCash == 0:
+                                cashFine = totalMoney * lossPercentage
+                                moneyData[uid]['money'] = currentCash - cashFine
+                            if not cashFine:
+                                cashFine = 0
+                            if not bankFine:
+                                bankFine = 0
+
+                            courtRequired = courtSystem(ctx, cashFine, bankFine)
+                            if courtRequired == False:
+                                userData = read_json('userConfig')
+                                if not uid in userData:
+                                    userData[uid] = {}
+                                currentCrimRating = userData[uid]['criminalNum']
+                                userData[uid]['criminalNum'] = currentCrimRating + 0.01
+                                write_json(userData, 'userConfig')
+                                bankFine = round(bankFine)
+                                cashFine = round(cashFine)
+                                time = getTime()
+                                em = discord.Embed(title="Robbery", description="You played yourself fool.", colour=0xCC0000)
+                                em.add_field(name="Victim:",value=f"You", inline=False)
+                                em.add_field(name="Cash lost:",value=f"${cashFine}", inline=False)
+                                em.add_field(name="Banked money lost:",value=f"${bankFine}", inline=False)
+                                em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+                                em.set_footer(text=bot.embed_footer + time)
+                                await ctx.send(embed=em)
+                            await ctx.message.delete()
+                        else:
+                            await ctx.send("Lucky... Your too poor to tax as of right now...")
+                write_json(moneyData, 'money')
+
+@rob.command()
+@commands.cooldown(1, 15, commands.BucketType.user)
+async def bank(ctx, user: discord.User):
+    """Rob someone elses bank account"""
+    await ctx.message.delete()
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        verified = await checkVerified(ctx)
+        if verified == True:
+            userData = read_json('userConfig')
+            uid = '{0.id}'.format(ctx.author)
+            if not uid in data:
+                userData[uid] = {}
+                userData[uid]['criminalNum'] = 1
+                write_json(userData, 'userConfig')
+            criminalNum = userData[uid]['criminalNum']
+            if criminalNum <= -1: #if crim num is less then -1
+                randomOne = random.randint(1,5)
+                randomTwo = random.randint(1,5)
+                if randomOne != randomeTwo:
+                    moneyData = read_json('money')
+                    userId = '{0.id}'.format(user)
+                    if userId in moneyData:
+                        randomThree = random.randint(1,15)
+                        theftPercentage = randomThree / 100
+                        userBankMoney = moneyData[userId]['bankedMoney']
+                        stolenMoney = userBankMoney * theftPercentage
+                        moneyData[userId]['bankedMoney'] = userBankMoney - stolenMoney
+
+                        robberMoney = moneyData[uid]['bankedMoney']
+                        moneyData[uid]['bankedMoney'] = robberMoney + stolenMoney
+                        write_json(moneyData, 'money')
+                        time = getTime()
+                        stolenMoney = round(stolenMoney)
+                        em = discord.Embed(title="Bank Robbery", description="Sneaky snake you are", colour=0xCC0000)
+                        em.add_field(name="Victim:",value=f"{user}", inline=False)
+                        em.add_field(name="Money stolen:",value=f"${stolenMoney}", inline=False)
+                        em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+                        em.set_footer(text=bot.embed_footer + time)
+                        await ctx.send(embed=em)
+                    else:
+                        await ctx.send(content=f"Ouch rude, trying to rob someone I dont have data on", delete_after=15)
+                else:
+                    await ctx.send(content=f"uh oh, looks like ur going to court <@{uid}", delete_after=15)
+            else:
+                await ctx.send(content=f"Hey <@{uid}, you can't rob peoples banks yet, k thx lmaooo", delete_after=5)
+
 
 @bot.group()
 @commands.is_owner()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def admin(ctx):
     """Add or remove bot admins"""
     verified = await checkVerified(ctx)
@@ -1015,6 +1171,7 @@ async def admin(ctx):
 
 @admin.command()
 @commands.is_owner()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def add(ctx, user=None):
     """Add a user as bot admin - `Owner only`"""
     verified = await checkVerified(ctx)
@@ -1039,6 +1196,7 @@ async def add(ctx, user=None):
         await ctx.message.delete()
 
 @admin.command()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def remove(ctx, user=None):
     """Remove someone as bot admin - `Owner only`"""
     verified = await checkVerified(ctx)
@@ -1063,100 +1221,112 @@ async def remove(ctx, user=None):
         await ctx.message.delete()
 
 @bot.command()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def rtest(ctx, invite: discord.Invite):
         """Shows information about an invite."""
-        guild = bot.get_guild(599164187385659402)
-        invites = guild.invites
-        for invite in invites:
-            if invite.inviter == message.author:
-                await ctx.send(invite.uses)
+        whitelistedChannel = await checkWhitelist(ctx)
+        if whitelistedChannel == True:
+            guild = bot.get_guild(599164187385659402)
+            invites = guild.invites
+            for invite in invites:
+                if invite.inviter == message.author:
+                    await ctx.send(invite.uses)
 
-        invite = bot.fetch_invite(f"{invite}")
-        print(invite)
-        embed = discord.Embed(title=f'Invite for {invite.guild.name} (`{invite.guild.id}`)')
-        embed.add_field(name='Channel', value=f'{invite.channel.name} (`{invite.channel.id}`)', inline=False)
-        embed.add_field(name='Uses', value=invite.uses, inline=False)
-        if invite.inviter:
-            embed.add_field(name='Inviter', value=invite.inviter, inline=False)
-        await ctx.send(embed=embed)
-        await ctx.send(f"{invite.max_age} {invite.approximate_member_count} {invite.id} {invite.url}")
+            invite = bot.fetch_invite(f"{invite}")
+            print(invite)
+            embed = discord.Embed(title=f'Invite for {invite.guild.name} (`{invite.guild.id}`)')
+            embed.add_field(name='Channel', value=f'{invite.channel.name} (`{invite.channel.id}`)', inline=False)
+            embed.add_field(name='Uses', value=invite.uses, inline=False)
+            if invite.inviter:
+                embed.add_field(name='Inviter', value=invite.inviter, inline=False)
+            await ctx.send(embed=embed)
+            await ctx.send(f"{invite.max_age} {invite.approximate_member_count} {invite.id} {invite.url}")
 
 
 @bot.command()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def antibot(ctx):
     """For when you fail an anti bot check, this can get you out of a sticky situation"""
-    uid = '{0.id}'.format(ctx.author)
-    data = read_json('userConfig')
-    if uid in data:
-        if data[uid]['botCheck'] == "fail":
-            user = bot.get_user(int(uid))
-            randNum = random.randint(000000, 999999)
-            time = getTime()
-            embed = discord.Embed(title=f"{ctx.message.author}", description="Please repeat the below code to avoid being known to me as a bot.", colour=0xffffff)
-            embed.add_field(name="You have 60 seconds to verify with the below code.",value=f"{randNum}")
-            embed.set_footer(text=bot.embed_footer + time)
-            await ctx.send(content=f"Hey {user.mention}, please check your dms from me", delete_after=15)
-            message = await user.send(embed=embed)
-            try:
-                msg = await bot.wait_for('message', timeout=60, check=lambda message: message.author == ctx.author)
-                if msg:
-                    if msg.content == str(randNum):
-                        em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nPass", colour=0x228B22)
-                        em.add_field(name="Thank you for completing this bot check.",value=f"Your input: *{msg.content}*")
-                        data = read_json('userConfig')
-                        data[uid]['botCheck'] = "pass"
-                        write_json(data, 'userConfig')
-                    else:
-                        data = read_json('userConfig')
-                        data[uid]['botCheck'] = "fail"
-                        write_json(data, 'userConfig')
-                        em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nFail-Wrong Input", colour=0xff0000)
-                        em.add_field(name="Im sorry but you failed this bot check.",value=f"Your input: *{msg.content}*")
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        uid = '{0.id}'.format(ctx.author)
+        data = read_json('userConfig')
+        if uid in data:
+            if data[uid]['botCheck'] == "fail":
+                user = bot.get_user(int(uid))
+                randNum = random.randint(000000, 999999)
+                time = getTime()
+                embed = discord.Embed(title=f"{ctx.message.author}", description="Please repeat the below code to avoid being known to me as a bot.", colour=0xffffff)
+                embed.add_field(name="You have 60 seconds to verify with the below code.",value=f"{randNum}")
+                embed.set_footer(text=bot.embed_footer + time)
+                await ctx.send(content=f"Hey {user.mention}, please check your dms from me", delete_after=15)
+                message = await user.send(embed=embed)
+                try:
+                    msg = await bot.wait_for('message', timeout=60, check=lambda message: message.author == ctx.author)
+                    if msg:
+                        if msg.content == str(randNum):
+                            em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nPass", colour=0x228B22)
+                            em.add_field(name="Thank you for completing this bot check.",value=f"Your input: *{msg.content}*")
+                            data = read_json('userConfig')
+                            data[uid]['botCheck'] = "pass"
+                            write_json(data, 'userConfig')
+                        else:
+                            data = read_json('userConfig')
+                            data[uid]['botCheck'] = "fail"
+                            write_json(data, 'userConfig')
+                            em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nFail-Wrong Input", colour=0xff0000)
+                            em.add_field(name="Im sorry but you failed this bot check.",value=f"Your input: *{msg.content}*")
+                        time = getTime()
+                        em.set_footer(text=bot.embed_footer + time)
+                        messageTwo = await user.send(embed=em)
+                #if msg is None:
+                except asyncio.TimeoutError:
+                    data = read_json('userConfig')
+                    data[uid]['botCheck'] = "fail"
+                    write_json(data, 'userConfig')
                     time = getTime()
+                    em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nFail-No Input", colour=0x808080)
+                    em.add_field(name="Im sorry but you failed to verify you aren't a bot.",value=f"Your input: *null*")
                     em.set_footer(text=bot.embed_footer + time)
                     messageTwo = await user.send(embed=em)
-            #if msg is None:
-            except asyncio.TimeoutError:
-                data = read_json('userConfig')
-                data[uid]['botCheck'] = "fail"
-                write_json(data, 'userConfig')
-                time = getTime()
-                em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nFail-No Input", colour=0x808080)
-                em.add_field(name="Im sorry but you failed to verify you aren't a bot.",value=f"Your input: *null*")
-                em.set_footer(text=bot.embed_footer + time)
-                messageTwo = await user.send(embed=em)
-
-"""
-global before_invites
-    before_invites = []
-    for guild in self.client.guilds:
-        for invite in await guild.invites():
-            x = [invite.url, invite.uses, invite.inviter.id]
-            before_invites.append(x)
-        print(before_invites)
-        """
-
 
 @bot.command()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def serverinfo(ctx, guild: discord.Guild):
         """Command to show server info"""
-        guild = bot
-        embed = discord.Embed(
-            color=discord.Color.from_rgb(241, 90, 36)
-        )
-        sender = ctx.author
-        embed.set_author(name="• Server Info → " + str(guild.name))
-        embed.set_thumbnail(url=guild.banner(size=4096, format="png"))
-        embed.add_field(name="—", value="→ Shows all information about a guild. The information will be listed below!"
-                                        "\n —")
-        embed.add_field(name="• Guild name: ", value=str(guild.name))
-        embed.add_field(name="• Discord ID: ", value=str(guild.id))
-        embed.add_field(name="• Guild owner: ", value=guild.owner)
-        embed.add_field(name="• Guild owner ID: ", value=guild.owner_id)
+        whitelistedChannel = await checkWhitelist(ctx)
+        if whitelistedChannel == True:
+            embed = discord.Embed(
+                color=discord.Color.from_rgb(241, 90, 36)
+            )
+            sender = ctx.author
+            embed.set_author(name="• Server Info → " + str(guild.name))
+            embed.set_thumbnail(url=guild.banner(size=4096, format="png"))
+            embed.add_field(name="—", value="→ Shows all information about a guild. The information will be listed below!"
+                                            "\n —")
+            embed.add_field(name="• Guild name: ", value=str(guild.name))
+            embed.add_field(name="• Discord ID: ", value=str(guild.id))
+            embed.add_field(name="• Guild owner: ", value=guild.owner)
+            embed.add_field(name="• Guild owner ID: ", value=guild.owner_id)
 
-        await ctx.send(embed=embed)
+            await ctx.send(embed=embed)
+
+@bot.command()
+async def linux(ctx):
+    embed = discord.Embed(colur=discord.Color.from_rgb(241,90,36))
+    embed.add_field(name="Kill screen", value="screen -X -S [session # you want to kill] quit")
+    embed.add_field(name="rename screen", value="screen -S (screen number) -X sessionname (new name)")
+    await ctx.send(embed=embed)
 
 #functions
+def checkBotAdmin(ctx):
+    data = read_json('config')
+    uid = '{0.id}'.format(ctx.author)
+    if uid in data['admins']:
+        if data['admins'][uid]['admin'] == "true":
+            return True
+    return False
+
 async def botCheck(ctx):
     """A function that can be used to check if someone is scripting or not"""
     data = read_json('userConfig')
@@ -1277,6 +1447,8 @@ async def checkWhitelist(ctx):
             await msg.delete()
             await ctx.message.delete()
             return False
+    else:
+        return True
 
 def getTime():
     """Gets current date"""
@@ -1367,7 +1539,6 @@ def withdraw(uid, amount):
     return w
 
 async def verifyFunction(ctx):
-    """Used to check if someone has the role or not i dont actually know?"""
     guild = ctx.guild
     if "$Verified$" in [role.name for role in guild.roles]:
         role = discord.utils.get(ctx.guild.roles, name="$Verified$")
@@ -1413,14 +1584,46 @@ def write_json(data, filename):
     jsonFile.close()
 
 @bot.group()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def stats(ctx):
     """Show some basic stats"""
-    if ctx.invoked_subcommand is None:
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        if ctx.invoked_subcommand is None:
+            time = getTime()
+            data = read_json('secrets')
+            pythonVersion = platform.python_version()
+            rewriteVersion = discord.__version__
+            #loop for members
+            botServers = bot.guilds
+            serverCount = 0
+            for guild in botServers:
+                serverCount += 1
+            userCount = 0
+            for g in botServers:
+                userCount += len(g.members)
+            embed = discord.Embed(title='{} Stats'.format(bot.user.name), description='\uFEFF', colour=ctx.author.colour)
+            embed.add_field(name='Bot Version:', value=botVersion)
+            embed.add_field(name='Python Version:', value=pythonVersion)
+            embed.add_field(name='Discord.Py Version', value=rewriteVersion)
+            embed.add_field(name='Total Guilds:', value=serverCount)
+            embed.add_field(name='Total Users:', value=userCount)
+            embed.add_field(name='Total commands run:', value=data['cc'])
+            embed.add_field(name='Bot Developer:', value="<@271612318947868673>")
+            embed.set_footer(text=bot.embed_footer + time)
+            embed.set_author(name = str(bot.user.name), icon_url = str(bot.user.avatar_url))
+            await ctx.send(embed = embed)
+
+@stats.command()
+@commands.has_role('Cool Kid')
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def admin(ctx):
+    """Some nice admin stats surrounding the bot"""
+    botAdmin = checkBotAdmin(ctx)
+    if botAdmin == True:
         time = getTime()
         data = read_json('secrets')
-        pythonVersion = platform.python_version()
-        rewriteVersion = discord.__version__
-        #loop for members
+        totalCommandUsers = data['commandUsers']
         botServers = bot.guilds
         serverCount = 0
         for guild in botServers:
@@ -1428,46 +1631,20 @@ async def stats(ctx):
         userCount = 0
         for g in botServers:
             userCount += len(g.members)
-        embed = discord.Embed(title='{} Stats'.format(bot.user.name), description='\uFEFF', colour=ctx.author.colour)
-        embed.add_field(name='Bot Version:', value=botVersion)
-        embed.add_field(name='Python Version:', value=pythonVersion)
-        embed.add_field(name='Discord.Py Version', value=rewriteVersion)
-        embed.add_field(name='Total Guilds:', value=serverCount)
+        cpuUsage = psutil.cpu_percent()
+        pid = os.getpid()
+        py = psutil.Process(pid)
+        memoryUse = py.memory_info()[0]/2.**30
+        memoryUse = roundRam(memoryUse)
+        embed = discord.Embed(title='{} Admin Stats'.format(bot.user.name), description='Special Kids Only.', colour=ctx.author.colour)
+        embed.add_field(name="Total Guilds:", value=serverCount)
         embed.add_field(name='Total Users:', value=userCount)
-        embed.add_field(name='Total commands run:', value=data['cc'])
-        embed.add_field(name='Bot Developer:', value="<@271612318947868673>")
+        embed.add_field(name='Total Bot Users:', value=totalCommandUsers)
+        embed.add_field(name='Cpu Usage %:', value=cpuUsage)
+        embed.add_field(name='Script memory usage:', value=memoryUse)
         embed.set_footer(text=bot.embed_footer + time)
         embed.set_author(name = str(bot.user.name), icon_url = str(bot.user.avatar_url))
         await ctx.send(embed = embed)
-
-@stats.command()
-@commands.is_owner()
-async def admin(ctx):
-    """Some nice admin stats surrounding the bot"""
-    time = getTime()
-    data = read_json('secrets')
-    totalCommandUsers = data['commandUsers']
-    botServers = bot.guilds
-    serverCount = 0
-    for guild in botServers:
-        serverCount += 1
-    userCount = 0
-    for g in botServers:
-        userCount += len(g.members)
-    cpuUsage = psutil.cpu_percent()
-    pid = os.getpid()
-    py = psutil.Process(pid)
-    memoryUse = py.memory_info()[0]/2.**30
-    memoryUse = roundRam(memoryUse)
-    embed = discord.Embed(title='{} Admin Stats'.format(bot.user.name), description='Special Kids Only.', colour=ctx.author.colour)
-    embed.add_field(name="Total Guilds:", value=serverCount)
-    embed.add_field(name='Total Users:', value=userCount)
-    embed.add_field(name='Total Bot Users:', value=totalCommandUsers)
-    embed.add_field(name='Cpu Usage %:', value=cpuUsage)
-    embed.add_field(name='Script memory usage:', value=memoryUse)
-    embed.set_footer(text=bot.embed_footer + time)
-    embed.set_author(name = str(bot.user.name), icon_url = str(bot.user.avatar_url))
-    await ctx.send(embed = embed)
 
 initial_extensions = ['cogs.music']
 
