@@ -1,0 +1,3 @@
+29/07/2019, ahahaha
+29/07/2019, imagine
+29/07/2019, If dedsec is enabled. All messages are logged, per user, with a timestamp
