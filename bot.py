@@ -518,6 +518,82 @@ async def embed(ctx, *, content:str):
 
         await ctx.send(embed = embed);
 
+@bot.group()
+@commands.cooldown(1, 5, commands.BucketType.user)
+async def buy(ctx):
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        verified = await checkVerified(ctx)
+        if verified == True:
+            if ctx.invoked_subcommand is None:
+                time = getTime()
+                em = discord.Embed(title="Commands", description="Avaliable commands.", colour=0x0000CC)
+                em.add_field(name="buy nfa (amount)",value="Buy an nfa alt", inline=False)
+                em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+                em.set_footer(text=bot.embed_footer + time)
+                await ctx.send(embed=em)
+                try:
+                    await ctx.message.delete()
+                except:
+                    pass
+
+@buy.command()
+@commands.cooldown(1, 3600, commands.BucketType.user)
+async def nfa(ctx, amount: int=1):
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        await ctx.message.delete()
+        verified = await checkVerified(ctx)
+        if verified == True:
+            money = read_json('money')
+            alts = read_json('alts')
+            uid = '{0.id}'.format(ctx.message.author)
+            if not uid in money:
+                await ctx.send("It does not appear you can run this command.\n||Error code - 404 User Money Not Found||")
+            else:
+                cash = money[uid]['money']
+                price = alts["0"]['price']
+                currentAlt = alts["0"]['currentAlt']
+                price = int(price)
+                cash = int(cash)
+                if price <= cash:
+                    user = bot.get_user(int(uid))
+                    em = discord.Embed(title="Purchase", description="Thanks for purchasing an alt from us.", colour=0xffff00)
+                    #for i in range(amount):
+                    if 1 == 1: #placeholder indent
+                        foundAlt = False
+                        while foundAlt == False:
+                            if alts[currentAlt]['used'] == False:
+                                alt = alts[currentAlt]['alt']
+                                foundAlt = True
+                                break
+                            else:
+                                currentAlt += 1
+                        alts[currentAlt]['used'] = True
+                        alts["0"]['currentAlt'] = str(int(currentAlt) + 1)
+                        money[uid]['money'] = cash - price
+                        em.add_field(name="Alt details:",value=f"{alt}", inline=False)
+                    try:
+                        time = getTime()
+                        em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+                        em.set_footer(text=bot.embed_footer + time)
+                        await user.send(embed=em)
+                        write_json(money, 'money')
+                        write_json(alts, 'alts')
+
+                        embedThree = discord.Embed(title="Item purchased in:", description=f"{ctx.message.guild.name}", colour=0x00ff00)
+                        embedThree.add_field(name="Item:",value="Nfa alt", inline=False)
+                        embedThree.add_field(name="Quantity:",value=f"{amount}", inline=False)
+                        embedThree.add_field(name="Purchase complete:",value="Yes", inline=False)
+                        embedThree.set_footer(text=bot.embed_footer + time)
+                        embedThree.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+                        purchaseChannel = bot.get_channel(608276919057776663)
+                        await purchaseChannel.send(embed=embedThree)
+                    except:
+                        await ctx.send(f"Hey <@{uid}>, I don't think I can dm you therefore you cannot purchase this item.\n||Error code - Foxtrot 32, Broken Pipe||")
+                else:
+                    await ctx.send(f"You need ${price} in cash to purchase this.\n||<@{uid}>||", delete_after=30)
+
 
 
 @bot.command()
