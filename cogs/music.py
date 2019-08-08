@@ -18,13 +18,11 @@ class Music(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print("one")
         if not hasattr(self.bot, 'lavalink'):  # This ensures the client isn't overwritten during cog reloads.
             self.bot.lavalink = lavalink.Client(self.bot.user.id)
             self.bot.lavalink.add_node('localhost', 2333, 'youshallnotpass', 'au', 'default-node')  # Host, Port, Password, Region, Name
             self.bot.add_listener(self.bot.lavalink.voice_update_handler, 'on_socket_response')
             self.bot.lavalink.add_event_hook(self.track_hook)
-            print("two")
 
     def cog_unload(self):
         self.bot.lavalink._event_hooks.clear()
@@ -62,6 +60,7 @@ class Music(commands.Cog):
         # the bot instance is an AutoShardedBot.
 
     @commands.command(aliases=['p'])
+    @commands.has_role('~ DJ')
     async def play(self, ctx, *, query: str):
         """ Searches and plays a song from a given query. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
@@ -98,6 +97,7 @@ class Music(commands.Cog):
             await player.play()
 
     @commands.command()
+    @commands.has_role('~ DJ')
     async def seek(self, ctx, *, seconds: int):
         """ Seeks to a given position in a track. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
@@ -108,6 +108,7 @@ class Music(commands.Cog):
         await ctx.send(f'Moved track to **{lavalink.utils.format_time(track_time)}**')
 
     @commands.command(aliases=['forceskip'])
+    @commands.has_role('~ DJ')
     async def skip(self, ctx):
         """ Skips the current track. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
@@ -119,6 +120,7 @@ class Music(commands.Cog):
         await ctx.send('⏭ | Skipped.')
 
     @commands.command()
+    @commands.has_role('~ DJ')
     async def stop(self, ctx):
         """ Stops the player and clears its queue. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
@@ -131,6 +133,7 @@ class Music(commands.Cog):
         await ctx.send('⏹ | Stopped.')
 
     @commands.command(aliases=['np', 'n', 'playing'])
+    @commands.has_role('~ DJ')
     async def now(self, ctx):
         """ Shows some stats about the currently playing song. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
@@ -150,6 +153,7 @@ class Music(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(aliases=['q'])
+    @commands.has_role('~ DJ')
     async def queue(self, ctx, page: int = 1):
         """ Shows the player's queue. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
@@ -173,6 +177,7 @@ class Music(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(aliases=['resume'])
+    @commands.has_role('~ DJ')
     async def pause(self, ctx):
         """ Pauses/Resumes the current track. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
@@ -188,6 +193,7 @@ class Music(commands.Cog):
             await ctx.send('⏯ | Paused')
 
     @commands.command(aliases=['vol'])
+    @commands.has_role('~ DJ')
     async def volume(self, ctx, volume: int = None):
         """ Changes the player's volume (0-1000). """
         player = self.bot.lavalink.players.get(ctx.guild.id)
@@ -199,6 +205,7 @@ class Music(commands.Cog):
         await ctx.send(f'🔈 | Set to {player.volume}%')
 
     @commands.command()
+    @commands.has_role('~ DJ')
     async def shuffle(self, ctx):
         """ Shuffles the player's queue. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
@@ -209,6 +216,7 @@ class Music(commands.Cog):
         await ctx.send('🔀 | Shuffle ' + ('enabled' if player.shuffle else 'disabled'))
 
     @commands.command(aliases=['loop'])
+    @commands.has_role('~ DJ')
     async def repeat(self, ctx):
         """ Repeats the current song until the command is invoked again. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
@@ -220,6 +228,7 @@ class Music(commands.Cog):
         await ctx.send('🔁 | Repeat ' + ('enabled' if player.repeat else 'disabled'))
 
     @commands.command()
+    @commands.has_role('~ DJ')
     async def remove(self, ctx, index: int):
         """ Removes an item from the player's queue with the given index. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
@@ -235,6 +244,7 @@ class Music(commands.Cog):
         await ctx.send(f'Removed **{removed.title}** from the queue.')
 
     @commands.command()
+    @commands.has_role('~ DJ')
     async def find(self, ctx, *, query):
         """ Lists the first 10 search results from a given query. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
@@ -259,6 +269,7 @@ class Music(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(aliases=['dc'])
+    @commands.has_role('~ DJ')
     async def disconnect(self, ctx):
         """ Disconnects the player from the voice channel and clears its queue. """
         player = self.bot.lavalink.players.get(ctx.guild.id)

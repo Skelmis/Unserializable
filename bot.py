@@ -55,6 +55,8 @@ bot.config_token = secret_file['token']
 bot.config_stars = json.load(open(str(cwd)+'/bot_config/stars.json'))
 bot.next_bug_report_id = None
 bot.dedsec_enabled = False
+bot.check_num = 1
+bot.greek = ";"
 
 botVersion = "0.8.3"
 
@@ -311,12 +313,14 @@ async def verify(ctx):
                 if verified == False:
                     randNum = random.randint(000000, 999999)
                     time = getTime()
-                    embed = discord.Embed(title=f"{ctx.message.author}", description="Please repeat the below code to be verified.", colour=0xffffff)
-                    embed.add_field(name="You have 30 seconds to verify with the below code.",value=f"{randNum}")
+                    embed = discord.Embed(title=f"{ctx.message.author}", description="Please repeat the below code to be verified.\nBy verifying you accept our terms of service.", colour=0xffffff)
+                    embed.add_field(name="You have 60 seconds to verify with the below code.",value=f"{randNum}")
                     embed.set_footer(text=bot.embed_footer + time)
+                    myFile = discord.File(str(cwd)+'/tos.pdf')
                     message = await user.send(embed=embed)
+                    await user.send(file=myFile)
                     try:
-                        msg = await bot.wait_for('message', timeout=30, check=lambda message: message.author == ctx.author)
+                        msg = await bot.wait_for('message', timeout=60, check=lambda message: message.author == ctx.author)
                         if msg:
                             if msg.content == str(randNum):
                                 em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nPass", colour=0x228B22)
@@ -349,7 +353,7 @@ async def verify(ctx):
                         em.set_footer(text=bot.embed_footer + time)
                         messageTwo = await user.send(embed=em)
                 else:
-                    await user.send(f"You are already verfied in this discord. (*{did}*)")
+                    await user.send(f"You are already verfied!\n||If you are missing verifed roles pm Skelmis||")
             else:
                 await ctx.send("**This discord does not have verification enabled.\nPlease contact a staff member in your discord to enable this.**")
         else:
@@ -414,7 +418,14 @@ async def on_member_join(user):
             write_json(inviteData, 'inviteLog')
 
         """
-
+@bot.command()
+@commands.cooldown(1, 30, commands.BucketType.user)
+async def docs(ctx):
+    """Check out our documents relating to the project"""
+    tos = discord.File(str(cwd)+'/tos.pdf')
+    manifest = discord.File(str(cwd)+'/The Back Alley.docx')
+    await ctx.send(content="Terms of service", file=tos, delete_after=60)
+    await ctx.send(content="Manifest and bot overview", file=manifest, delete_after=60)
 
 @bot.command()
 @commands.cooldown(1, 2, commands.BucketType.user)
@@ -591,8 +602,10 @@ async def nfa(ctx, amount: int=1):
                         await purchaseChannel.send(embed=embedThree)
                     except:
                         await ctx.send(f"Hey <@{uid}>, I don't think I can dm you therefore you cannot purchase this item.\n||Error code - Foxtrot 32, Broken Pipe||")
+                        nfa.reset_cooldown(ctx)
                 else:
                     await ctx.send(f"You need ${price} in cash to purchase this.\n||<@{uid}>||", delete_after=30)
+                    nfa.reset_cooldown(ctx)
 
 
 
@@ -834,7 +847,18 @@ async def logout(ctx):
     botAdmin = checkBotAdmin(ctx)
     if botAdmin == True:
         await ctx.send("Logging out...")
+        print(f"{ctx.message.author} has logged the bot out")
         await bot.logout()
+
+@bot.command()
+@commands.is_owner()
+async def guilds(ctx):
+    """Check guilds the bot is in"""
+    botGuilds = bot.guilds
+    string = "Heres my guilds:\n"
+    for guild in botGuilds:
+        string = string + f"{guild.name}\n"
+    await ctx.send(f"{string}")
 
 """
 #music stuffs
@@ -1237,6 +1261,8 @@ async def cash(ctx, user: discord.User):
                         bankedCash = 0
                     totalMoney = currentCash + bankedCash
                     if totalMoney != 0:
+                        cashFine = None
+                        bankFine = None
                         if currentCash != 0 and bankedCash != 0:
                             cashPercentage = (totalMoney - bankedCash) / 100
                             bankedPercentage = (totalMoney - currentCash) / 100
@@ -1485,25 +1511,33 @@ async def antibot(ctx):
                     messageTwo = await user.send(embed=em)
 
 @bot.command()
-@commands.cooldown(1, 2, commands.BucketType.user)
-async def serverinfo(ctx, guild: discord.Guild):
+@commands.cooldown(1, 100, commands.BucketType.user)
+async def si(ctx, guild: int=None):
         """Command to show server info"""
         whitelistedChannel = await checkWhitelist(ctx)
         if whitelistedChannel == True:
+            if not guild:
+                guild = ctx.guild.id
+            guild = bot.get_guild(guild)
             embed = discord.Embed(
                 color=discord.Color.from_rgb(241, 90, 36)
             )
             sender = ctx.author
             embed.set_author(name="• Server Info → " + str(guild.name))
-            embed.set_thumbnail(url=guild.banner(size=4096, format="png"))
+            #embed.set_thumbnail(url=guild.banner(size=4096, format="png"))
             embed.add_field(name="—", value="→ Shows all information about a guild. The information will be listed below!"
                                             "\n —")
             embed.add_field(name="• Guild name: ", value=str(guild.name))
             embed.add_field(name="• Discord ID: ", value=str(guild.id))
+            embed.add_field(name='\uFEFF', value='\uFEFF')
             embed.add_field(name="• Guild owner: ", value=guild.owner)
             embed.add_field(name="• Guild owner ID: ", value=guild.owner_id)
+            embed.add_field(name='\uFEFF', value='\uFEFF')
 
             await ctx.send(embed=embed)
+            if ctx.author.id == 271612318947868673:
+                await ctx.send("Reset cooldown?")
+                si.reset_cooldown(ctx)
 
 @bot.command()
 async def linux(ctx):
@@ -1511,6 +1545,7 @@ async def linux(ctx):
     embed = discord.Embed(colur=discord.Color.from_rgb(241,90,36))
     embed.add_field(name="Kill screen", value="screen -X -S [session # you want to kill] quit")
     embed.add_field(name="rename screen", value="screen -S (screen number) -X sessionname (new name)")
+    embed.add_field(name="Reconnect to 'attached' screens", value="screen -r -d (screen number)")
     await ctx.send(embed=embed)
 
 @bot.command()
@@ -1578,7 +1613,17 @@ def checkBotAdmin(ctx):
     return False
 
 async def botCheck(ctx):
-    """A function that can be used to check if someone is scripting or not"""
+    """A function that can be used to check if someone is scripting or not using multiple verification methods"""
+    randNum = random.randint(0, bot.check_num)
+    if randNum == 0:
+        await CheckOne(ctx)
+    elif randNum == 1:
+        await CheckTwo(ctx)
+    else:
+        await CheckOne(ctx)
+
+async def CheckOne(ctx):
+    """Verification check one"""
     data = read_json('userConfig')
     uid = '{0.id}'.format(ctx.author)
     user = bot.get_user(int(uid))
@@ -1619,6 +1664,73 @@ async def botCheck(ctx):
         em.set_footer(text=bot.embed_footer + time)
         messageTwo = await user.send(embed=em)
 
+async def CheckTwo(ctx):
+    """Verification check two"""
+    data = read_json('userConfig')
+    uid = '{0.id}'.format(ctx.author)
+    user = bot.get_user(int(uid))
+    if not uid in data:
+        data[uid] = {}
+    randStr = getRandomString()
+    randNum = randStr + bot.greek
+    expectedInput = randStr + ";"
+    time = getTime()
+    embed = discord.Embed(title=f"{ctx.message.author}", description="Please repeat the below code to avoid being flagged as a bot.", colour=0xffffff)
+    embed.add_field(name="You have 60 seconds to verify with the below code.",value=f"{randNum}")
+    embed.set_footer(text=bot.embed_footer + time)
+    await ctx.send(content=f"Hey {user.mention}, please check your dms from me", delete_after=15)
+    startTime = datetime.now()
+    message = await user.send(embed=embed)
+    try:
+        msg = await bot.wait_for('message', timeout=60, check=lambda message: message.author == ctx.author)
+        if msg:
+            totalTime = datetime.now() - startTime
+            totalTime = str(totalTime)
+            endTime = None
+            check = []
+            for char in str(totalTime):
+                check.append(str(char.lower()))
+            for i in range(len(check)):
+                if check[i] == '.':
+                    endTime = totalTime[int(i-2):i]
+            if msg.content == str(randNum):
+                em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nPass", colour=0x228B22)
+                em.add_field(name="Thank you for completing this bot check.",value=f"Your input: *{msg.content}*")
+                data = read_json('userConfig')
+                data[uid]['botCheck'] = "pass"
+                write_json(data, 'userConfig')
+
+                channel = bot.get_channel(608586455731929088)
+                dedsecEmbed = discord.Embed(title="Dedsec - Caution Notice", description=f"{ctx.message.author} - `({uid})`", colour=0xff6666)
+                dedsecEmbed.add_field(name="User suspected of botting.\n`bot.greek` contents found within input, expected semicolon.",value=f"Input: *{msg.content}*")
+                dedsecEmbed.add_field(name=f"User completed the check in `{endTime}` seconds.", value="Average completion time is around `15-30` seconds.")
+                time = getFullTime()
+                dedsecEmbed.set_footer(text=bot.embed_footer + time)
+                await channel.send(embed=dedsecEmbed)
+            elif msg.content == str(expectedInput):
+                em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nPass", colour=0x228B22)
+                em.add_field(name="Thank you for completing this bot check.",value=f"Your input: *{msg.content}*")
+                data = read_json('userConfig')
+                data[uid]['botCheck'] = "pass"
+                write_json(data, 'userConfig')
+            else:
+                data = read_json('userConfig')
+                data[uid]['botCheck'] = "fail"
+                write_json(data, 'userConfig')
+                em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nFail-Wrong Input", colour=0xff0000)
+                em.add_field(name="Im sorry but you failed this bot check.",value=f"Your input: *{msg.content}*")
+            time = getTime()
+            em.set_footer(text=bot.embed_footer + time)
+            messageTwo = await user.send(embed=em)
+    except asyncio.TimeoutError:
+        data = read_json('userConfig')
+        data[uid]['botCheck'] = "fail"
+        write_json(data, 'userConfig')
+        time = getTime()
+        em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nFail-No Input", colour=0x808080)
+        em.add_field(name="Im sorry but you failed to verify you aren't a bot.",value=f"Your input: *null*")
+        em.set_footer(text=bot.embed_footer + time)
+        messageTwo = await user.send(embed=em)
 
 def bugReportCheck():
     """Used to generate new bug report id's will forever loop untill an unused id is found theoretically"""
@@ -1721,6 +1833,11 @@ async def checkWhitelist(ctx):
 def getTime():
     """Gets current date"""
     time = datetime.now().strftime('%d/%m/%Y')
+    return time
+
+def getFullTime():
+    """Gets current date and time"""
+    time = datetime.now().strftime('%S:%M:%H %d/%m/%Y')
     return time
 
 def round(amount):
@@ -1856,7 +1973,7 @@ async def stats(ctx):
     """Show some basic stats"""
     whitelistedChannel = await checkWhitelist(ctx)
     if whitelistedChannel == True:
-        if ctx.invoked_subcommand is None:
+        if ctx.invoked_subcommand == None:
             time = getTime()
             data = read_json('secrets')
             pythonVersion = platform.python_version()
@@ -1880,6 +1997,36 @@ async def stats(ctx):
             embed.set_footer(text=bot.embed_footer + time)
             embed.set_author(name = str(bot.user.name), icon_url = str(bot.user.avatar_url))
             await ctx.send(embed = embed)
+
+@stats.command(name="bot")
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def _bot(ctx): #called call it bot because it breaks
+
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        time = getTime()
+        data = read_json('secrets')
+        pythonVersion = platform.python_version()
+        rewriteVersion = discord.__version__
+        #loop for members
+        botServers = bot.guilds
+        serverCount = 0
+        for guild in botServers:
+            serverCount += 1
+        userCount = 0
+        for g in botServers:
+            userCount += len(g.members)
+        embed = discord.Embed(title='{} Stats'.format(bot.user.name), description='\uFEFF', colour=ctx.author.colour)
+        embed.add_field(name='Bot Version:', value=botVersion)
+        embed.add_field(name='Python Version:', value=pythonVersion)
+        embed.add_field(name='Discord.Py Version', value=rewriteVersion)
+        embed.add_field(name='Total Guilds:', value=serverCount)
+        embed.add_field(name='Total Users:', value=userCount)
+        embed.add_field(name='Total commands run:', value=data['cc'])
+        embed.add_field(name='Bot Developer:', value="<@271612318947868673>")
+        embed.set_footer(text=bot.embed_footer + time)
+        embed.set_author(name = str(bot.user.name), icon_url = str(bot.user.avatar_url))
+        await ctx.send(embed = embed)
 
 @stats.command()
 @commands.has_role('Discord Administrator')
