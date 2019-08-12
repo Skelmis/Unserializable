@@ -1004,12 +1004,15 @@ async def deposit(ctx, amount=None):
         if verified == True:
             if not amount:
                 amount = 0.0
+            all = False
+            if amount.lower('all'):
+                all == True
             await ctx.trigger_typing()
             amount = float(amount)
             uid = '{0.id}'.format(ctx.message.author)
-            if amount == 0:
+            if amount == 0 and all == False:
                 await ctx.send("Please specify either `deposit (amount)` or `withdraw (amount)`")
-            elif amount <= 0:
+            elif amount <= 0 and all == False:
                 await ctx.send("You need to specify a positive amount aswell...")
             else:
                 time = getTime()
@@ -1231,7 +1234,7 @@ async def cash(ctx, user: discord.User):
                         if not 'criminalNum' in userData[uid]:
                             userData[uid]['criminalNum'] = 1
                         currentCrimRating = userData[uid]['criminalNum']
-                        userData[uid]['criminalNum'] = currentCrimRating - 0.02
+                        userData[uid]['criminalNum'] = currentCrimRating - 2
                         write_json(userData, 'userConfig')
 
                         time = getTime()
@@ -1282,13 +1285,13 @@ async def cash(ctx, user: discord.User):
                         if not bankFine:
                             bankFine = 0
 
-                        courtRequired = await courtSystem(ctx, cashFine, bankFine)
+                        courtRequired = await courtSystem(ctx)
                         if courtRequired == False:
                             userData = read_json('userConfig')
                             if not uid in userData:
                                 userData[uid] = {}
                             currentCrimRating = userData[uid]['criminalNum']
-                            userData[uid]['criminalNum'] = currentCrimRating + 0.02
+                            userData[uid]['criminalNum'] = currentCrimRating + 2
                             write_json(userData, 'userConfig')
                             bankFine = round(bankFine)
                             cashFine = round(cashFine)
@@ -1334,7 +1337,7 @@ async def bank(ctx, user: discord.User):
             discordData = read_json('discordConfig')
             if did in discordData:
                 crimDis = discordData[did]['criminalDiscord']
-            if criminalNum <= -1 or crimDis == True: #if crim num is less then -1
+            if criminalNum <= -100: #if crim num is less then -1
                 randomOne = random.randint(1,5)
                 randomTwo = random.randint(1,5)
                 if randomOne != randomTwo:
@@ -1346,7 +1349,10 @@ async def bank(ctx, user: discord.User):
                         userBankMoney = moneyData[userId]['bankedMoney']
                         stolenMoney = userBankMoney * theftPercentage
                         moneyData[userId]['bankedMoney'] = userBankMoney - stolenMoney
-                        robberMoney = moneyData[uid]['bankedMoney']
+                        try:
+                            robberMoney = moneyData[uid]['bankedMoney']
+                        except:
+                            robberMoney = 0
                         moneyData[uid]['bankedMoney'] = robberMoney + stolenMoney
                         write_json(moneyData, 'money')
                         userData = read_json('userConfig')
@@ -1355,7 +1361,7 @@ async def bank(ctx, user: discord.User):
                         if not 'criminalNum' in userData[uid]:
                             userData[uid]['criminalNum'] = 1
                         currentCrimRating = userData[uid]['criminalNum']
-                        userData[uid]['criminalNum'] = currentCrimRating - 0.03
+                        userData[uid]['criminalNum'] = currentCrimRating - 3
                         write_json(userData, 'userConfig')
                         time = getTime()
                         stolenMoney = round(stolenMoney)
@@ -1368,7 +1374,7 @@ async def bank(ctx, user: discord.User):
                     else:
                         await ctx.send(content=f"Ouch rude, trying to rob someone I dont have data on", delete_after=15)
                 else:
-                    courtRequired = await courtSystem(ctx, cashFine, bankFine)
+                    courtRequired = await courtSystem(ctx)
                     await ctx.send(content=f"uh oh, looks like ur going to court <@{uid}>", delete_after=15)
             else:
                 await ctx.send(content=f"Hey <@{uid}>, you can't rob peoples banks yet, k thx lmaooo.\nRob more people's cash to improve your criminal rating and then rob banks", delete_after=10)
@@ -1599,7 +1605,7 @@ async def verify(ctx):
 
 
 #functions
-async def courtSystem(ctx, cashFine, bankFine):
+async def courtSystem(ctx):
     channel = bot.get_channel(606405385234153483)
     await channel.send("Make the court system nerd")
     return False
@@ -2060,13 +2066,14 @@ async def admin(ctx):
         embed.set_author(name = str(bot.user.name), icon_url = str(bot.user.avatar_url))
         await ctx.send(embed = embed)
 
-initial_extensions = ['cogs.music']
+initial_extensions = ['cogs.music', 'cogs.eval']
 
 if __name__ == '__main__':
     """If this is the 'main' file, run this code and run the bot when the script is ran"""
     for extension in initial_extensions:
         try:
             bot.load_extension(extension)
+            print(f'Loaded {extension}')
         except Exception as e:
             print(f'Failed to load extension {extension}.', file=sys.stderr)
             traceback.print_exc()
