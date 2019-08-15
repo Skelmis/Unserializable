@@ -17,6 +17,7 @@ import pathlib
 from pathlib import Path
 from datetime import datetime
 import lavalink
+import re
 
 print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 cwd = Path(__file__).parents[0]
@@ -116,6 +117,23 @@ async def on_message(message):
         file.write(f"{time}, {message.content} \n")
         file.close()
 
+    if message.guild.id == 599164187385659402: #Back alley discord
+        guild = message.guild
+        botAdmin = checkBotAdmin(message)
+        if botAdmin == False:
+            match = False
+            patterns = ['https://discord.gg', 'discord.gg']
+            for pattern in patterns:
+                print('Looking for "%s" in "%s" ->' % (pattern, message.content))
+                if re.search(pattern, message.content):
+                    match = True
+                    break
+            else:
+                match = False
+            if match == True:
+                await message.delete()
+                author = message.author
+                await author.send("Lowkey stop advertising, if u got a problem dm management.\n||Error code - 400 Bad message body||")
     await bot.process_commands(message)
 
 @bot.event
@@ -186,7 +204,7 @@ async def on_command_completion(ctx):
 @bot.event
 async def on_command_error(ctx, error):
     """Everytime a command errors this is called"""
-    ignored = (commands.CommandNotFound)
+    ignored = (commands.CommandNotFound)#, commands.UserInputError)
     if isinstance(error, ignored):
         return
 
@@ -637,13 +655,12 @@ async def bug(ctx):
         if ctx.invoked_subcommand is None:
             time = getTime()
             em = discord.Embed(title="Commands", description="Avaliable commands.", colour=0x0000CC)
-            em.add_field(name="report",value="Report bot bugs", inline=False)
-            em.add_field(name="status",value="Check the status of a bug report", inline=False)
-            em.add_field(name="accept",value="Accept and close active bug reports - `Management Only`", inline=False)
-            em.add_field(name="deny",value="Deny and close active bug reports - `Management Only`", inline=False)
+            em.add_field(name="bug report (Describe the bug)",value="Report bot bugs", inline=False)
+            em.add_field(name="bug status (Report Id)",value="Check the status of a bug report", inline=False)
+            em.add_field(name="bug accept (Report Id) (Closing comment - `optional`)",value="Accept and close active bug reports - `Management Only`", inline=False)
+            em.add_field(name="bug deny (Report Id) (Closing comment - `optional`)",value="Deny and close active bug reports - `Management Only`", inline=False)
             em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
             em.set_footer(text=bot.embed_footer + time)
-            await ctx.send(embed=em)
             try:
                 await ctx.message.delete()
             except:
@@ -742,7 +759,7 @@ async def accept(ctx, rid, *, reason=None):
             if not reason:
                 reason = f"{state} by {ctx.author.name}."
             else:
-                reason = reason + f' Report closed by {ctx.author.name}'
+                reason = reason + f'\nReport closed by {ctx.author.name}'
             msgId = data['bug'][rid]['msgId']
             openReportChannel = bot.get_channel(601420701580132352)
             channel = bot.get_channel(601420726737829901)
@@ -799,7 +816,7 @@ async def deny(ctx, rid, *, reason=None):
             if not reason:
                 reason = f"{state} by {ctx.author.name}."
             else:
-                reason = reason + f' Report closed by {ctx.author.name}'
+                reason = reason + f'\nReport closed by {ctx.author.name}'
             msgId = data['bug'][rid]['msgId']
             openReportChannel = bot.get_channel(601420701580132352)
             channel = bot.get_channel(601420726737829901)
@@ -984,8 +1001,8 @@ async def bank(ctx):
             if ctx.invoked_subcommand is None:
                 time = getTime()
                 em = discord.Embed(title="Bank", description="Its your local", colour=0xffffff)
-                em.add_field(name="deposit",value="Put money into your bank", inline=False)
-                em.add_field(name="withdraw",value="take money out from your bank", inline=False)
+                em.add_field(name="bank deposit (amount)",value="Put money into your bank", inline=False)
+                em.add_field(name="bank withdraw (amount)",value="take money out from your bank", inline=False)
                 em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
                 em.set_footer(text=bot.embed_footer + time)
                 await ctx.send(embed=em, delete_after=15)
@@ -1005,11 +1022,16 @@ async def deposit(ctx, amount=None):
             if not amount:
                 amount = 0.0
             all = False
-            if amount.lower('all'):
-                all == True
+            uid = '{0.id}'.format(ctx.message.author)
+            try:
+                if amount.lower() == 'all':
+                    all == True
+                    udc = read_json('money')
+                    amount = udc[uid]['money']
+            except:
+                all = False
             await ctx.trigger_typing()
             amount = float(amount)
-            uid = '{0.id}'.format(ctx.message.author)
             if amount == 0 and all == False:
                 await ctx.send("Please specify either `deposit (amount)` or `withdraw (amount)`")
             elif amount <= 0 and all == False:
@@ -1033,15 +1055,25 @@ async def deposit(ctx, amount=None):
 
 @bank.command()
 @commands.cooldown(1, 15, commands.BucketType.user)
-async def withdraw(ctx, amount=0.0):
+async def withdraw(ctx, amount=None):
     """A command to remove money from your bank"""
     whitelistedChannel = await checkWhitelist(ctx)
     if whitelistedChannel == True:
         verified = await checkVerified(ctx)
         if verified == True:
+            if not amount:
+                amount = 0.0
+            all = False
+            uid = '{0.id}'.format(ctx.message.author)
+            try:
+                if amount.lower() == 'all':
+                    all == True
+                    udc = read_json('money')
+                    amount = udc[uid]['bankedMoney']
+            except:
+                all = False
             await ctx.trigger_typing()
             amount = float(amount)
-            uid = '{0.id}'.format(ctx.message.author)
             if amount == 0:
                 await ctx.send("Please specify either `deposit (amount)` or `withdraw (amount)`")
             elif amount <= 0:
