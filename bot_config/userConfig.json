@@ -1,1 +1,187 @@
-{"294863378260688897": {"verify": true, "botCheck": "pass", "modifier": 1}, "424551187233112076": {"verify": true, "botCheck": "pass", "modifier": 1, "inviteLogged": null, "criminalNum": 1.02}, "271612318947868673": {"verify": true, "botCheck": "pass", "modifier": 1.5, "criminalNum": 0.9299999999999999}, "493937661044719626": {"verify": true, "inviteLogged": null}, "277815569284333568": {"verify": true, "botCheck": "pass", "modifier": 1}, "574458280387280917": {"verify": true, "botCheck": "pass", "modifier": 1}, "536261428756086806": {"verify": true, "botCheck": "pass", "modifier": 1, "criminalNum": 0.6299999999999997}, "283783821852409856": {"verify": true, "botCheck": "pass", "modifier": 1}, "359776214816391170": {"verify": true, "botCheck": "pass", "modifier": 1}, "158063324699951104": {"verify": true}, "102939789979844608": {"verify": true, "botCheck": "pass", "modifier": 1}, "386556645217402881": {"criminalNum": 1, "inviteLogged": null, "verify": true}, "152660093005987840": {"criminalNum": 0.94, "inviteLogged": null, "verify": true, "botCheck": "pass", "modifier": 1}, "213966496542490625": {"criminalNum": 1, "inviteLogged": null, "verify": true}, "342410728130740225": {"criminalNum": 1, "inviteLogged": null, "verify": true}, "491526561040957440": {"criminalNum": 1, "inviteLogged": null, "botCheck": "pass"}, "567792412358082592": {"criminalNum": 1, "inviteLogged": null}, "341226105237274634": {"criminalNum": 1, "inviteLogged": null}, "395062244477501441": {"criminalNum": 1, "inviteLogged": null, "verify": true, "botCheck": "pass", "modifier": 1}, "381341878924083200": {"criminalNum": 1, "inviteLogged": null}, "514119318418489354": {"criminalNum": 1, "inviteLogged": null}, "287827493786877953": {"criminalNum": 1, "inviteLogged": null, "verify": true}, "347362324086128641": {"criminalNum": 1, "inviteLogged": null}, "155149108183695360": {"criminalNum": 1, "inviteLogged": null}, "270503468257640449": {"criminalNum": 1, "inviteLogged": null}, "289165020821192705": {"criminalNum": 1, "inviteLogged": null, "verify": false}, "399538392599232522": {"verify": true}}
+{
+  "294863378260688897": {
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1,
+    "criminalNum": 1
+  },
+  "424551187233112076": {
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1,
+    "inviteLogged": null,
+    "criminalNum": -2.2400000000000007
+  },
+  "271612318947868673": {
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1.5,
+    "criminalNum": 0.7799999999999998,
+    "blacklisted": true
+  },
+  "493937661044719626": {
+    "verify": true,
+    "inviteLogged": null,
+    "criminalNum": 0.07999999999999935,
+    "botCheck": "pass",
+    "modifier": 1
+  },
+  "277815569284333568": {
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1
+  },
+  "574458280387280917": {
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1,
+    "criminalNum": 0.97
+  },
+  "536261428756086806": {
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1,
+    "criminalNum": -5.159999999999992
+  },
+  "283783821852409856": {
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1,
+    "criminalNum": 0.97
+  },
+  "359776214816391170": {
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1
+  },
+  "158063324699951104": {
+    "verify": true
+  },
+  "102939789979844608": {
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1,
+    "criminalNum": 0.99
+  },
+  "386556645217402881": {
+    "criminalNum": 1,
+    "inviteLogged": null,
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1
+  },
+  "152660093005987840": {
+    "criminalNum": 0.5999999999999996,
+    "inviteLogged": null,
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1
+  },
+  "213966496542490625": {
+    "criminalNum": 1,
+    "inviteLogged": null,
+    "verify": true
+  },
+  "342410728130740225": {
+    "criminalNum": 1,
+    "inviteLogged": null,
+    "verify": true
+  },
+  "491526561040957440": {
+    "criminalNum": 1,
+    "inviteLogged": null,
+    "botCheck": "pass"
+  },
+  "567792412358082592": {
+    "criminalNum": 1,
+    "inviteLogged": null
+  },
+  "341226105237274634": {
+    "criminalNum": 1,
+    "inviteLogged": null
+  },
+  "395062244477501441": {
+    "criminalNum": 1,
+    "inviteLogged": null,
+    "verify": true,
+    "botCheck": "pass",
+    "modifier": 1
+  },
+  "381341878924083200": {
+    "criminalNum": 1,
+    "inviteLogged": null
+  },
+  "514119318418489354": {
+    "criminalNum": 1,
+    "inviteLogged": null
+  },
+  "287827493786877953": {
+    "criminalNum": 1,
+    "inviteLogged": null,
+    "verify": true
+  },
+  "347362324086128641": {
+    "criminalNum": 1,
+    "inviteLogged": null
+  },
+  "155149108183695360": {
+    "criminalNum": 1,
+    "inviteLogged": null
+  },
+  "270503468257640449": {
+    "criminalNum": 1,
+    "inviteLogged": null
+  },
+  "289165020821192705": {
+    "criminalNum": 1,
+    "inviteLogged": null,
+    "verify": false
+  },
+  "399538392599232522": {
+    "verify": true
+  },
+  "231429130724311040": {
+    "criminalNum": 1,
+    "inviteLogged": null,
+    "verify": true
+  },
+  "290094946214477825": {
+    "criminalNum": 1,
+    "inviteLogged": null
+  },
+  "527323662311882752": {
+    "criminalNum": 1,
+    "inviteLogged": null
+  },
+  "452429077685731329": {
+    "criminalNum": 1,
+    "inviteLogged": null,
+    "verify": true
+  },
+  "216693780408041473": {
+    "criminalNum": 1,
+    "inviteLogged": null,
+    "verify": true
+  },
+  "230485119163564043": {
+    "criminalNum": 1,
+    "inviteLogged": null,
+    "verify": true
+  },
+  "360885861908480010": {
+    "criminalNum": 0.8499999999999999,
+    "inviteLogged": null,
+    "verify": false,
+    "botCheck": "pass",
+    "modifier": 1
+  },
+  "216303189073461248": {
+    "criminalNum": 1,
+    "inviteLogged": null
+  },
+  "448571768584536065": {
+    "criminalNum": 1,
+    "inviteLogged": null,
+    "verify": true
+  }
+}

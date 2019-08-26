@@ -16,8 +16,8 @@ import random, string
 import pathlib
 from pathlib import Path
 from datetime import datetime
-import lavalink
-import re
+import lavalink #music
+import re # regex
 
 print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 cwd = Path(__file__).parents[0]
@@ -58,8 +58,10 @@ bot.next_bug_report_id = None
 bot.dedsec_enabled = False
 bot.check_num = 1
 bot.greek = ";"
+bot.blacklisted_users = None
+bot.ready = False
 
-botVersion = "0.8.3"
+botVersion = "0.8.6"
 
 @bot.event
 async def on_ready():
@@ -88,16 +90,24 @@ async def on_ready():
     print('------')
     print('Logged in as')
     print(bot.user.name)
-    bot.embed_footer = f"Carpe Noctem | {bot.user.name} | "
+    bot.embed_footer = f"Carpe Noctem | {bot.user.name} "
     print(bot.user.id)
     print('------')
+    bot.blacklisted_users = read_json('userConfig')
+    bot.ready = True
     await bot.change_presence(activity=discord.Game(name="Beware of keeping cash, but can you trust the banks?"))
 
 @bot.event
 async def on_message(message):
     """On discord message, this events called"""
+    if bot.ready == False:
+        return
     if message.author.id == bot.user.id:
         return
+    uid = '{0.id}'.format(message.author)
+    if str(message.author.id) in bot.blacklisted_users:
+        if bot.blacklisted_users[uid]['blacklisted'] == True:
+            return
     '''
     if bot.user.mentioned_in(message) and message.mention_everyone is False and:
         did = '{}'.format(message.guild.id)
@@ -108,7 +118,6 @@ async def on_message(message):
     if message.channel.id == 600681150217846784:
         await message.delete()
     if bot.dedsec_enabled == True:
-        uid = '{0.id}'.format(message.author)
         try:
             file = open(str(cwd) + f"/dedsec_logs/{uid}.txt", 'a')
         except FileNotFoundError:
@@ -406,6 +415,7 @@ async def on_member_join(user):
         if not uid in userData:
             userData[uid] = {}
             userData[uid]['criminalNum'] = 1
+            userData[uid]['blacklisted'] = False
         userData[uid]['inviteLogged'] = None
         write_json(userData, 'userConfig')
 
@@ -1452,6 +1462,7 @@ async def add(ctx, user=None):
             pass
 
 @admin.command()
+@commands.is_owner()
 @commands.cooldown(1, 2, commands.BucketType.user)
 async def remove(ctx, user=None):
     """Remove someone as bot admin - `Owner only`"""
@@ -1478,6 +1489,80 @@ async def remove(ctx, user=None):
             await ctx.message.delete()
         except:
             pass
+
+@bot.group()
+@commands.is_owner()
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def staff(ctx):
+    """Add or remove bot admins"""
+    verified = await checkVerified(ctx)
+    if verified == True:
+        botAdmin = checkBotAdmin(ctx)
+        if botAdmin == True:
+            if ctx.invoked_subcommand is None:
+                await ctx.send("Either staff add or staff remove mate")
+
+@staff.command()
+@commands.has_role('Discord Administrator')
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def add(ctx, user=None):
+    """Add a user as bot staff"""
+    verified = await checkVerified(ctx)
+    if verified == True:
+        botAdmin = checkBotAdmin(ctx)
+        if botAdmin == True:
+            if not user:
+                user = '{0.id}'.format(ctx.author)
+            try:
+                user = user.strip("<@>")
+            except:
+                user = user
+            uid = user
+            data = read_json('config')
+            if not uid in data['staff']:
+                data['staff'][uid] = {}
+                data['staff'][uid]['staff'] = "true"
+            else:
+                data['staff'][uid]['staff'] = "true"
+            write_json(data, 'config')
+            msg = await ctx.send(f"Added <@{uid}> as bot staff")
+            await asyncio.sleep(5)
+            await msg.delete()
+            try:
+                await ctx.message.delete()
+            except:
+                pass
+
+@staff.command()
+@commands.has_role('Discord Administrator')
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def remove(ctx, user=None):
+    """Remove someone as bot staff"""
+    verified = await checkVerified(ctx)
+    if verified == True:
+        botAdmin = checkBotAdmin(ctx)
+        if botAdmin == True:
+            if not user:
+                user = '{0.id}'.format(ctx.author)
+            try:
+                user = user.strip("<@>")
+            except:
+                user = user
+            uid = user
+            data = read_json('config')
+            if not uid in data['staff']:
+                data['staff'][uid] = {}
+                data['staff'][uid]['staff'] = "false"
+            else:
+                data['staff'][uid]['staff'] = "false"
+            write_json(data, 'config')
+            msg = await ctx.send(f"Removing <@{uid}> as bot staff")
+            await asyncio.sleep(5)
+            await msg.delete()
+            try:
+                await ctx.message.delete()
+            except:
+                pass
 
 @bot.command()
 @commands.cooldown(1, 2, commands.BucketType.user)
@@ -1577,6 +1662,121 @@ async def si(ctx, guild: int=None):
                 await ctx.send("Reset cooldown?")
                 si.reset_cooldown(ctx)
 
+@bot.group()
+@commands.has_role('~ Staff')
+async def payroll(ctx):
+    verified = await checkVerified(ctx)
+    if verified == True:
+        botStaff = checkStaff(ctx)
+        if botStaff == True:
+            if ctx.invoked_subcommand is None:
+                embed = discord.Embed(colur=discord.Color.from_rgb(255,90,40))
+                embed.add_field(name="payroll add (user) (amount) (Optional - Type)", value="adds (amount) to (user) money (cash)\nType is the account, bank or cash. Defaults to cash", inline=False)
+                embed.add_field(name="payroll remove (user) (amount)", value="removes (amount) from (user) money (cash)\nType is the account, bank or cash. Defaults to cash", inline=False)
+                embed.add_field(name="payroll clear (user)", value="sets all money values for (user) to 0\nType is the account, bank or cash. Defaults to all", inline=False)
+                await ctx.send(embed=embed, delete_after=30)
+
+@payroll.command()
+@commands.has_role('~ Staff')
+async def add(ctx, user, amount: float, type=None):
+    verified = await checkVerified(ctx)
+    if verified == True:
+        botStaff = checkStaff(ctx)
+        if botStaff == True:
+            if not type:
+                type = "cash"
+            user = user.strip("<@>")
+            uid = '{0}'.format(user)
+            data = read_json('money')
+            if uid in data:
+                if type.lower() == "cash":
+                    money = data[uid]['money']
+                    data[uid]['money'] = money + amount
+                    newAmount = data[uid]['money']
+                elif type.lower() == "bank":
+                    money = data[uid]['bankedMoney']
+                    data[uid]['bankedMoney'] = money + amount
+                    newAmount = data[uid]['bankedMoney']
+                write_json(data, 'money')
+                await ctx.message.delete()
+                newAmount = round(newAmount)
+                money = round(money)
+                em = discord.Embed(title="Payroll change:", description=f"{type} money added", colour=0xcccccc,timestamp=ctx.message.created_at)
+                em.add_field(name="Money added:",value=f"${amount}", inline=False)
+                em.add_field(name="New balance:", value=f"${newAmount}")
+                em.add_field(name="Old balance:", value=f"${money}")
+                em.set_footer(text=bot.embed_footer)
+                em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+                await ctx.send(embed=em, delete_after=30)
+                channel = bot.get_channel(613694916874338306)
+                await channel.send(embed=em)
+
+@payroll.command()
+@commands.has_role('~ Staff')
+async def remove(ctx, user, amount: float, type=None):
+    verified = await checkVerified(ctx)
+    if verified == True:
+        botStaff = checkStaff(ctx)
+        if botStaff == True:
+            if not type:
+                type = "cash"
+            user = user.strip("<@>")
+            uid = '{0}'.format(user)
+            data = read_json('money')
+            if uid in data:
+                if type.lower() == "cash":
+                    money = data[uid]['money']
+                    data[uid]['money'] = money - amount
+                    newAmount = data[uid]['money']
+                elif type.lower() == "bank":
+                    money = data[uid]['bankedMoney']
+                    data[uid]['bankedMoney'] = money - amount
+                    newAmount = data[uid]['bankedMoney']
+                write_json(data, 'money')
+                await ctx.message.delete()
+                newAmount = round(newAmount)
+                money = round(money)
+                em = discord.Embed(title="Payroll change:", description=f"{type} money removed", colour=0xcccccc,timestamp=ctx.message.created_at)
+                em.add_field(name="Money removed:",value=f"${amount}", inline=False)
+                em.add_field(name="New balance:", value=f"${newAmount}")
+                em.add_field(name="Old balance:", value=f"${money}")
+                em.set_footer(text=bot.embed_footer)
+                em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+                await ctx.send(embed=em, delete_after=30)
+                channel = bot.get_channel(613694916874338306)
+                await channel.send(embed=em)
+
+@payroll.command()
+@commands.has_role('~ Staff')
+async def clear(ctx, user, type=None):
+    verified = await checkVerified(ctx)
+    if verified == True:
+        botStaff = checkStaff(ctx)
+        if botStaff == True:
+            if not type:
+                type = "all"
+            user = user.strip("<@>")
+            uid = '{0}'.format(user)
+            data = read_json('money')
+            if uid in data:
+                if type.lower() == "cash":
+                    data[uid]['money'] = 0
+                elif type.lower() == "bank":
+                    data[uid]['bankedMoney'] = 0
+                else:
+                    data[uid]['bankedMoney'] = 0
+                    data[uid]['totalMoney'] = 0
+                    data[uid]['money'] = 0
+                write_json(data, 'money')
+                await ctx.message.delete()
+                em = discord.Embed(title="Payroll change:", description=f"{type} money cleared", colour=0xcccccc,timestamp=ctx.message.created_at)
+                em.add_field(name="Money cleared:",value="Success", inline=False)
+                em.set_footer(text=bot.embed_footer)
+                em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+                await ctx.send(embed=em, delete_after=30)
+                channel = bot.get_channel(613694916874338306)
+                await channel.send(embed=em)
+
 @bot.command()
 async def linux(ctx):
     """Some linux commands useful for skelmis"""
@@ -1647,6 +1847,14 @@ def checkBotAdmin(ctx):
     uid = '{0.id}'.format(ctx.author)
     if uid in data['admins']:
         if data['admins'][uid]['admin'] == "true":
+            return True
+    return False
+
+def checkStaff(ctx):
+    data = read_json('config')
+    uid = '{0.id}'.format(ctx.author)
+    if uid in data['staff']:
+        if data['staff'][uid]['staff'] == "true":
             return True
     return False
 

@@ -22,7 +22,7 @@ class Eval(commands.Cog):
             'author': ctx.author,
             'guild': ctx.guild,
             'message': ctx.message,
-            'source': inspect.getsource
+            'source': inspect.getsource,
         }
 
         def cleanup_code(content):
