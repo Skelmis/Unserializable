@@ -66,6 +66,7 @@ botVersion = "0.8.6"
 @bot.event
 async def on_ready():
     """When the bot has connected to discord and is ready to go, is different to on connect"""
+    await bot.change_presence(activity=discord.Game(name="Negotiating a connection to discord."))
     bot.config_token = bot.config_token.swapcase()
     bot.config_token = bot.config_token.encode("cp037", "replace")
     print('------')
@@ -106,8 +107,11 @@ async def on_message(message):
         return
     uid = '{0.id}'.format(message.author)
     if str(message.author.id) in bot.blacklisted_users:
-        if bot.blacklisted_users[uid]['blacklisted'] == True:
-            return
+        try:
+            if bot.blacklisted_users[uid]['blacklisted'] == True:
+                return
+        except:
+            pass
     '''
     if bot.user.mentioned_in(message) and message.mention_everyone is False and:
         did = '{}'.format(message.guild.id)
@@ -1491,7 +1495,7 @@ async def remove(ctx, user=None):
             pass
 
 @bot.group()
-@commands.is_owner()
+@commands.has_role('Discord Administrator')
 @commands.cooldown(1, 2, commands.BucketType.user)
 async def staff(ctx):
     """Add or remove bot admins"""
@@ -1563,6 +1567,88 @@ async def remove(ctx, user=None):
                 await ctx.message.delete()
             except:
                 pass
+
+@bot.group()
+@commands.has_role('Discord Administrator')
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def blacklist(ctx):
+    """Add or remove bot blacklists"""
+    verified = await checkVerified(ctx)
+    if verified == True:
+        botAdmin = checkBotAdmin(ctx)
+        if botAdmin == True:
+            if ctx.invoked_subcommand is None:
+                await ctx.send("Either blacklist add or blacklist remove mate")
+
+@blacklist.command()
+@commands.has_role('Discord Administrator')
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def add(ctx, user=None):
+    """Blacklists a user"""
+    verified = await checkVerified(ctx)
+    if verified == True:
+        botAdmin = checkBotAdmin(ctx)
+        if botAdmin == True:
+            if not user:
+                await ctx.send("Please say who to blacklist", delete_after=15)
+                return
+            try:
+                user = user.strip("<@>")
+            except:
+                user = user
+            if user == "271612318947868673" or user == "294863378260688897":
+                await ctx.send("Im sorry, you are unable to blacklist this user.", delete_after=15)
+                return
+            uid = user
+            data = read_json('userConfig')
+            if not uid in data:
+                data[uid] = {}
+                data[uid]['blacklisted'] = True
+            else:
+                data[uid]['blacklisted'] = True
+            write_json(data, 'userConfig')
+            bot.blacklisted_users = read_json('userConfig')
+            msg = await ctx.send(f"Adding <@{uid}> to the blacklist")
+            await asyncio.sleep(5)
+            await msg.delete()
+            try:
+                await ctx.message.delete()
+            except:
+                pass
+
+@blacklist.command()
+@commands.has_role('Discord Administrator')
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def remove(ctx, user=None):
+    """Remove someone from the blacklist"""
+    verified = await checkVerified(ctx)
+    if verified == True:
+        botAdmin = checkBotAdmin(ctx)
+        if botAdmin == True:
+            try:
+                user = user.strip("<@>")
+            except:
+                user = user
+            if user == "271612318947868673" or user == "294863378260688897":
+                await ctx.send("Im sorry, you are unable to blacklist this user.", delete_after=15)
+                return
+            uid = user
+            data = read_json('userConfig')
+            if not uid in data:
+                data[uid] = {}
+                data[uid]['blacklisted'] = False
+            else:
+                data[uid]['blacklisted'] = False
+            write_json(data, 'userConfig')
+            bot.blacklisted_users = read_json('userConfig')
+            msg = await ctx.send(f"Removing <@{uid}> from the blacklist")
+            await asyncio.sleep(5)
+            await msg.delete()
+            try:
+                await ctx.message.delete()
+            except:
+                pass
+
 
 @bot.command()
 @commands.cooldown(1, 2, commands.BucketType.user)
@@ -2050,6 +2136,9 @@ async def checkVerified(ctx):
 async def checkWhitelist(ctx):
     """A function made for usage with bot restrictions in the back alley"""
     if ctx.guild.id == 599164187385659402:
+        botAdmin = checkBotAdmin(ctx)
+        if botAdmin == True:
+            return True
         data = read_json('whitelistedChannels')
         channel = '{0.id}'.format(ctx.channel)
         if channel in data:
@@ -2210,7 +2299,7 @@ def read_json(filename):
 def write_json(data, filename):
     """Write to a json file in the /bot_config/ directory"""
     jsonFile = open(str(cwd)+'/bot_config/'+filename+'.json', 'w+')
-    jsonFile.write(json.dumps(data))
+    jsonFile.write(json.dumps(data, indent=4))
     jsonFile.close()
 
 @bot.group()
