@@ -96,11 +96,19 @@ async def on_ready():
     print('------')
     bot.blacklisted_users = read_json('userConfig')
     bot.ready = True
+    await asyncio.sleep(2.5)
     await bot.change_presence(activity=discord.Game(name="Beware of keeping cash, but can you trust the banks?"))
 
 @bot.event
 async def on_message(message):
     """On discord message, this events called"""
+    if message.content == "ALPHA AidaN FOXTROT CharliE. Bravo six going dark.":
+        channel = bot.get_channel(608586455731929088)
+        await channel.send("Logging out...")
+        await channel.send("**DO NOT LOGIN UNTILL A LOGOUT PHRASE HAS BEEN REGENERATED**")
+        print(f"{message.author} has logged the bot out")
+        print("DO NOT LOGIN UNTILL A LOGOUT PHRASE HAS BEEN REGENERATED")
+        await bot.logout()
     if bot.ready == False:
         return
     if message.author.id == bot.user.id:
@@ -403,6 +411,68 @@ async def echo(ctx,*,msg='e'):
         except:
             pass
         await ctx.send(msg)
+
+@bot.event
+async def on_member_update(before,after):
+    if before.guild.id == 599164187385659402 and after.guild.id == 599164187385659402:
+        if len(before.roles) < len(after.roles): #if the user has gained a role
+            newRole = next(role for role in after.roles if role not in before.roles)
+            if newRole.name in ('~ Level One', '~ Level Two', '~ Level Three', '~ Level X'):
+                data = read_json('userConfig')
+                uid = '{0.id}'.format(after)
+                if not uid in data:
+                    data[uid] = {}
+                if not "modifier" in data[uid]:
+                    data[uid]['modifier'] = 0
+                if newRole.name == '~ Level One':
+                    change = 0.03
+                    data[uid]['modifier'] = data[uid]['modifier'] + 0.03
+                elif newRole.name == '~ Level Two':
+                    change = 0.05
+                    data[uid]['modifier'] = data[uid]['modifier'] + 0.05
+                elif newRole.name == '~ Level Three':
+                    change = 0.075
+                    data[uid]['modifier'] = data[uid]['modifier'] + 0.075
+                elif newRole.name == '~ Level X':
+                    change = 0.1
+                    data[uid]['modifier'] = data[uid]['modifier'] + 0.1
+                write_json(data, 'userConfig')
+                channel = bot.get_channel(615838615368368148)
+                em = discord.Embed(title="User modifier changes:", description=f"<@{uid}>", colour=0x85C1E9)
+                em.add_field(name="Modifier change:",value=f"Added `{change}`")
+                em.add_field(name="Users current modifier:", value=f"{(data[uid]['modifier'] + 1)}")
+                time = getTime()
+                em.set_footer(text=bot.embed_footer + time)
+                await channel.send(embed=em)
+        elif len(before.roles) > len(after.roles):
+            removedRole = next(role for role in before.roles if role not in after.roles)
+            if removedRole.name in ('~ Level One', '~ Level Two', '~ Level Three', '~ Level X'):
+                data = read_json('userConfig')
+                uid = '{0.id}'.format(after)
+                if not uid in data:
+                    data[uid] = {}
+                if not "modifier" in data[uid]:
+                    data[uid]['modifier'] = 0
+                if removedRole.name == '~ Level One':
+                    change = 0.03
+                    data[uid]['modifier'] = data[uid]['modifier'] - 0.03
+                elif removedRole.name == '~ Level Two':
+                    change = 0.05
+                    data[uid]['modifier'] = data[uid]['modifier'] - 0.05
+                elif removedRole.name == '~ Level Three':
+                    change = 0.075
+                    data[uid]['modifier'] = data[uid]['modifier'] - 0.075
+                elif removedRole.name == '~ Level X':
+                    change = 0.1
+                    data[uid]['modifier'] = data[uid]['modifier'] - 0.1
+                write_json(data, 'userConfig')
+                channel = bot.get_channel(615838615368368148)
+                em = discord.Embed(title="User modifier changes:", description=f"<@{uid}>", colour=0xEC7063)
+                em.add_field(name="Modifier change:",value=f"Removed `{change}`")
+                em.add_field(name="Users current modifier:", value=f"{(data[uid]['modifier'] + 1)}")
+                time = getTime()
+                em.set_footer(text=bot.embed_footer + time)
+                await channel.send(embed=em)
 
 @bot.event
 async def on_member_join(user):
@@ -871,7 +941,7 @@ async def deny(ctx, rid, *, reason=None):
                 pass
 
 @bot.command()
-@commands.is_owner()
+@commands.has_role('Discord Administrator')
 @commands.cooldown(1, 2, commands.BucketType.user)
 async def logout(ctx):
     """Log the bot out of discord"""
@@ -941,17 +1011,17 @@ async def income(ctx):
                 if not uid in userModData:
                     userModData[uid] = {}
                 if not 'modifier' in userModData[uid]:
-                    userModData[uid]['modifier'] = 1
+                    userModData[uid]['modifier'] = 0
                 write_json(userModData, 'userConfig')
                 discordModData = read_json('discordConfig')
                 if not did in discordModData:
                     discordModData[did] = {}
                 if not 'modifier' in discordModData[did]:
-                    discordModData[did]['modifier'] = 1
+                    discordModData[did]['modifier'] = 0
                 write_json(discordModData, 'discordConfig')
                 discordMod = discordModData[did]['modifier']
                 userMod = userModData[uid]['modifier']
-                totalMod = (discordMod + userMod) / 2
+                totalMod = 1 + discordMod + userMod
                 await ctx.trigger_typing()
                 responseData = read_json('responses')
                 responseNumber = random.randint(1,6)
