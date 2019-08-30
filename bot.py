@@ -347,14 +347,14 @@ async def verify(ctx):
                     data[uid] = {}
                 if 'verify' in data[uid]:
                     verified = data[uid]['verify']
+                else:
+                    data[uid]['verify'] = False
+                    verified = False
                 data[uid]['botCheck'] = "pass"
                 data[uid]['modifier'] = 0
                 data[uid]['criminalNum'] = 0
                 data[uid]['blacklisted'] = False
                 data[uid]['inviteLogged'] = None
-                else:
-                    data[uid]['verify'] = False
-                    verified = False
                 write_json(data, 'userConfig')
                 user = ctx.author
                 if verified == False:
