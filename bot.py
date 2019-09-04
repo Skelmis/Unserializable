@@ -16,7 +16,7 @@ import random, string
 import pathlib
 from pathlib import Path
 from datetime import datetime
-import lavalink #music
+#import lavalink #music
 import re # regex
 
 print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
@@ -60,8 +60,11 @@ bot.check_num = 1
 bot.greek = ";"
 bot.blacklisted_users = None
 bot.ready = False
+bot.invite = "https://discord.gg/xaprPYX"
+bot.invite_id = "xaprPYX"
+bot.admins = [271612318947868673, 294863378260688897]
 
-botVersion = "0.8.6"
+botVersion = "0.9.1"
 
 @bot.event
 async def on_ready():
@@ -87,6 +90,9 @@ async def on_ready():
         x = [invite.id, invite.code, invite.url, invite.uses, invite.inviter.id]
         before_invites.append(x)
     write_json(data, 'inviteLog')
+    if not bot.invite_id in data:
+        channel = bot.get_channel(599169305552224256)
+        await channel.send(f"uh @everyone, the invite im using is invalid\nI am using `{bot.invite}` as my invite however it is invalid -_-")
     print(before_invites)
     print('------')
     print('Logged in as')
@@ -129,7 +135,8 @@ async def on_message(message):
         prefixMsg = await message.channel.send(f"My prefix here is `{prefix}`")
         await prefixMsg.add_reaction('👀')'''
     if message.channel.id == 600681150217846784:
-        await message.delete()
+        if not message.author.id in bot.admins:
+            await message.delete()
     if bot.dedsec_enabled == True:
         try:
             file = open(str(cwd) + f"/dedsec_logs/{uid}.txt", 'a')
@@ -138,24 +145,22 @@ async def on_message(message):
         time = getTime()
         file.write(f"{time}, {message.content} \n")
         file.close()
-
-    if message.guild.id == 599164187385659402: #Back alley discord
-        guild = message.guild
-        botAdmin = checkBotAdmin(message)
-        if botAdmin == False:
-            match = False
-            patterns = ['https://discord.gg', 'discord.gg']
-            for pattern in patterns:
-                #print('Looking for "%s" in "%s" ->' % (pattern, message.content))
-                if re.search(pattern, message.content):
-                    match = True
-                    break
-            else:
+    if not message.guild is None:
+        if message.guild.id == 599164187385659402: #Back alley discord
+            if not message.author.id in bot.admins:
                 match = False
-            if match == True:
-                await message.delete()
-                author = message.author
-                await author.send("Lowkey stop advertising, if u got a problem dm management.\n||Error code - 400 Bad message body||")
+                patterns = ['https://discord.gg', 'discord.gg']
+                for pattern in patterns:
+                    #print('Looking for "%s" in "%s" ->' % (pattern, message.content))
+                    if re.search(pattern, message.content):
+                        match = True
+                        break
+                else:
+                    match = False
+                if match == True:
+                    await message.delete()
+                    author = message.author
+                    await author.send("Lowkey stop advertising, if u got a problem dm management.\n||Error code - 400 Bad message body||")
     await bot.process_commands(message)
 
 @bot.event
@@ -193,6 +198,7 @@ async def on_guild_join(guild):
         try:
             defaultChannel = bot.get_channel(channel.id)
             await defaultChannel.send("Thanks for adding me to your discord yall. @Me to get your prefix here and lets get grinding.\n*Please note you do need to run the income command atleast once to setup this discords eco*")
+            failure = False
             break
         except:
             failure = True
@@ -233,7 +239,7 @@ async def on_command_error(ctx, error):
         return
 
     if isinstance(error, commands.CommandOnCooldown):
-        await ctx.send('This command is on a `%.2fs` cooldown' % error.retry_after)
+        await ctx.send(f'This command is on a `{round(error.retry_after)}s` cooldown, {ctx.author.mention}')
     elif isinstance(error, commands.CheckFailure):
         await ctx.send("This commands failed a check :/\n||*commands.CheckFailure tripped*||")
     elif isinstance(error, commands.BotMissingPermissions):
@@ -268,26 +274,27 @@ async def prupdate(ctx, *, args):
     write_json(data, 'config')
 
 @bot.command()
-@commands.is_owner()
+@commands.has_role("Discord Administrator")
 @commands.cooldown(1, 2, commands.BucketType.user)
-async def cwhitelist(ctx, channel=None):
+async def cw(ctx, channel=None):
     """Whitelist channels for the bot"""
     botAdmin = checkBotAdmin(ctx)
-    if botAdmin == True:
+    if botAdmin == True and ctx.author.id in bot.admins:
         if not channel:
             channel = '{0.id}'.format(ctx.message.channel)
         data = read_json('whitelistedChannels')
         if channel in data:
             if data[channel]['state'] == "true":
-                await ctx.send(f"Removing {channel} from the channel whitelist")
+                await ctx.send(f"Removing {channel} from the channel whitelist",delete_after=5)
                 data[channel]['state'] = "false"
             elif data[channel]['state'] == "false":
-                await ctx.send(f"Adding {channel} to the channel whitelist")
+                await ctx.send(f"Adding {channel} to the channel whitelist",delete_after=5)
                 data[channel]['state'] = "true"
         else:
-            await ctx.send(f"Adding {channel} to the channel whitelist")
+            await ctx.send(f"Adding {channel} to the channel whitelist",delete_after=5)
             data[channel] = {}
             data[channel]['state'] = "true"
+        await ctx.message.delete()
         write_json(data, 'whitelistedChannels')
 
 
@@ -699,8 +706,8 @@ async def nfa(ctx, amount: int=1):
                     if 1 == 1: #placeholder indent
                         foundAlt = False
                         while foundAlt == False:
-                            if alts[currentAlt]['used'] == False:
-                                alt = alts[currentAlt]['alt']
+                            if alts[str(currentAlt)]['used'] == False:
+                                alt = alts[str(currentAlt)]['alt']
                                 foundAlt = True
                                 break
                             else:
@@ -732,27 +739,6 @@ async def nfa(ctx, amount: int=1):
                     await ctx.send(f"You need ${price} in cash to purchase this.\n||<@{uid}>||", delete_after=30)
                     nfa.reset_cooldown(ctx)
 
-
-
-@bot.command()
-@commands.is_owner()
-@commands.cooldown(1, 2, commands.BucketType.user)
-async def itest(ctx):
-    """Income averages command"""
-    for i in range(25):
-        incomes = []
-        for i in range(10):
-            income = random.randint(25, 75)
-            income = income * 1
-            incomes.append(income)
-        await ctx.send(incomes)
-        total = 0
-        for i in range(10):
-            total = total + incomes[i]
-        average = total / 10
-        await ctx.send(average)
-        await asyncio.sleep(2)
-
 @bot.group()
 @commands.cooldown(1, 2, commands.BucketType.user)
 async def bug(ctx):
@@ -768,6 +754,7 @@ async def bug(ctx):
             em.add_field(name="bug deny (Report Id) (Closing comment - `optional`)",value="Deny and close active bug reports - `Management Only`", inline=False)
             em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
             em.set_footer(text=bot.embed_footer + time)
+            await ctx.send(embed=em,delete_after=30)
             try:
                 await ctx.message.delete()
             except:
@@ -1010,93 +997,95 @@ async def stop(ctx):
 
 #starting eco stuff
 @bot.command()
-@commands.cooldown(1, 15, commands.BucketType.user)
+@commands.cooldown(1, 300, commands.BucketType.user)
 async def income(ctx):
     """A command to generate income"""
     whitelistedChannel = await checkWhitelist(ctx)
     if whitelistedChannel == True:
-        randomOne = random.randint(1,6)
-        randomTwo = random.randint(1,6)
-        #await ctx.send(f"{randomOne} + {randomTwo}")
-        uid = '{0.id}'.format(ctx.message.author)
-        did = '{0.id}'.format(ctx.message.guild)
-        if randomOne == randomTwo:
-            await botCheck(ctx)
-        checkData = read_json('userConfig')
-        if not 'botCheck' in checkData[uid]:
-            checkData[uid]['botCheck'] = "pass"
-        write_json(checkData, 'userConfig')
+        verified = await checkVerified(ctx)
+        if verified == True:
+            randomOne = random.randint(1,9)
+            #await ctx.send(f"{randomOne} + {randomTwo}")
+            uid = '{0.id}'.format(ctx.message.author)
+            randomTwo = random.randint(1,9)
+            did = '{0.id}'.format(ctx.message.guild)
+            if randomOne == randomTwo:
+                await botCheck(ctx)
+            checkData = read_json('userConfig')
+            if not 'botCheck' in checkData[uid]:
+                checkData[uid]['botCheck'] = "pass"
+            write_json(checkData, 'userConfig')
 
-        if checkData[uid]['botCheck'] == "pass":
-            verified = await checkVerified(ctx)
-            if verified == True:
-                userModData = read_json('userConfig')
-                if not uid in userModData:
-                    userModData[uid] = {}
-                if not 'modifier' in userModData[uid]:
-                    userModData[uid]['modifier'] = 0
-                write_json(userModData, 'userConfig')
-                discordModData = read_json('discordConfig')
-                if not did in discordModData:
-                    discordModData[did] = {}
-                if not 'modifier' in discordModData[did]:
-                    discordModData[did]['modifier'] = 0
-                write_json(discordModData, 'discordConfig')
-                discordMod = discordModData[did]['modifier']
-                userMod = userModData[uid]['modifier']
-                totalMod = 1 + discordMod + userMod
-                await ctx.trigger_typing()
-                responseData = read_json('responses')
-                responseNumber = random.randint(1,6)
+            if checkData[uid]['botCheck'] == "pass":
+                verified = await checkVerified(ctx)
+                if verified == True:
+                    userModData = read_json('userConfig')
+                    if not uid in userModData:
+                        userModData[uid] = {}
+                    if not 'modifier' in userModData[uid]:
+                        userModData[uid]['modifier'] = 0
+                    write_json(userModData, 'userConfig')
+                    discordModData = read_json('discordConfig')
+                    if not did in discordModData:
+                        discordModData[did] = {}
+                    if not 'modifier' in discordModData[did]:
+                        discordModData[did]['modifier'] = 0
+                    write_json(discordModData, 'discordConfig')
+                    discordMod = discordModData[did]['modifier']
+                    userMod = userModData[uid]['modifier']
+                    totalMod = 1 + discordMod + userMod
+                    await ctx.trigger_typing()
+                    responseData = read_json('responses')
+                    responseNumber = random.randint(1,10)
+                    time = getTime()
+
+                    income = random.randint(25, 75)
+                    income = income * totalMod
+                    name = '{}'.format(ctx.message.author)
+                    moneyData = read_json('money')
+                    if uid in moneyData:
+                        currentMoney = moneyData[uid]['money']
+                        money = currentMoney + income
+                        moneyData[uid]['money'] = money
+                        moneyData[uid]['name'] = name
+                        try:
+                            bankedMoney = moneyData[uid]['bankedMoney']
+                        except:
+                            bankedMoney = 0
+                        moneyData[uid]['bankedMoney'] = bankedMoney
+                    else:
+                        moneyData[uid] = {}
+                        moneyData[uid]['money'] = income
+                        moneyData[uid]['name'] = name
+                        try:
+                            bankedMoney = moneyData[uid]['bankedMoney']
+                        except:
+                            bankedMoney = 0
+                        moneyData[uid]['bankedMoney'] = bankedMoney
+                    write_json(moneyData, 'money')
+                    totalCountAdd(uid, 'totalMoneyWon', 'money', income)
+                    msgResponse = responseData[f'{responseNumber}']
+                    em = discord.Embed(title="Income", description="Make that cash money.", colour=0x0000CC)
+                    em.add_field(name=f"{msgResponse}",value=f"You made: ${income}", inline=False)
+                    em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+                    em.set_footer(text=bot.embed_footer + time)
+                    await ctx.send(embed=em)
+                    try:
+                        await ctx.message.delete()
+                    except:
+                        pass
+            else:
                 time = getTime()
-
-                income = random.randint(25, 75)
-                income = income * totalMod
-                name = '{}'.format(ctx.message.author)
-                moneyData = read_json('money')
-                if uid in moneyData:
-                    currentMoney = moneyData[uid]['money']
-                    money = currentMoney + income
-                    moneyData[uid]['money'] = money
-                    moneyData[uid]['name'] = name
-                    try:
-                        bankedMoney = moneyData[uid]['bankedMoney']
-                    except:
-                        bankedMoney = 0
-                    moneyData[uid]['bankedMoney'] = bankedMoney
-                else:
-                    moneyData[uid] = {}
-                    moneyData[uid]['money'] = income
-                    moneyData[uid]['name'] = name
-                    try:
-                        bankedMoney = moneyData[uid]['bankedMoney']
-                    except:
-                        bankedMoney = 0
-                    moneyData[uid]['bankedMoney'] = bankedMoney
-                write_json(moneyData, 'money')
-                totalCountAdd(uid, 'totalMoneyWon', 'money', income)
-                msgResponse = responseData[f'{responseNumber}']
-                em = discord.Embed(title="Income", description="Make that cash money.", colour=0x0000CC)
-                em.add_field(name=f"{msgResponse}",value=f"You made: ${income}", inline=False)
+                em = discord.Embed(title="Income", description="DisgRaCe", colour=0x0000CC)
+                em.add_field(name="You have a failed status in an anti bot check. ",value="Please run the command `antibot` to resolve this issue.\nIf you need assistance contact <@271612318947868673> to resolve this issues.", inline=False)
                 em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
                 em.set_footer(text=bot.embed_footer + time)
                 await ctx.send(embed=em)
+                await ctx.send(f"<@{uid}>")
                 try:
                     await ctx.message.delete()
                 except:
                     pass
-        else:
-            time = getTime()
-            em = discord.Embed(title="Income", description="DisgRaCe", colour=0x0000CC)
-            em.add_field(name="You have a failed status in an anti bot check. ",value="Please run the command `antibot` to resolve this issue.\nIf you need assistance contact <@271612318947868673> to resolve this issues.", inline=False)
-            em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
-            em.set_footer(text=bot.embed_footer + time)
-            await ctx.send(embed=em)
-            await ctx.send(f"<@{uid}>")
-            try:
-                await ctx.message.delete()
-            except:
-                pass
 
 @bot.group()
 @commands.cooldown(1, 2, commands.BucketType.user)
@@ -1120,7 +1109,7 @@ async def bank(ctx):
                     pass
 
 @bank.command()
-@commands.cooldown(1, 5, commands.BucketType.user)
+@commands.cooldown(1, 900, commands.BucketType.user)
 async def deposit(ctx, amount=None):
     """A command to deposit money into your bank"""
     whitelistedChannel = await checkWhitelist(ctx)
@@ -1162,7 +1151,7 @@ async def deposit(ctx, amount=None):
                     pass
 
 @bank.command()
-@commands.cooldown(1, 15, commands.BucketType.user)
+@commands.cooldown(1, 300, commands.BucketType.user)
 async def withdraw(ctx, amount=None):
     """A command to remove money from your bank"""
     whitelistedChannel = await checkWhitelist(ctx)
@@ -1246,7 +1235,7 @@ async def bal(ctx, user: discord.User=None):
             else:
                 await ctx.send("Um yea, so you don't exist in the db for this discord. E.g. You should use {}income".format(prefix))
 
-@bot.command()
+@bot.command(enabled=True)
 @commands.cooldown(1, 2, commands.BucketType.user)
 async def baltop(ctx, pagenum='1'):
     """Check out the money balances"""
@@ -1270,7 +1259,7 @@ async def baltop(ctx, pagenum='1'):
                 moneyData[uid]['totalMoney'] = totalMoney
             write_json(moneyData, 'money')
             pagenum = int(pagenum)
-            username = ''
+            username = None
             count = 0
             total = 0
             di = {}
@@ -1281,25 +1270,123 @@ async def baltop(ctx, pagenum='1'):
             results = sorted(di.items(), key=lambda t : t[1], reverse=True)
             for k, v in results:
                 v = str(v)
+                k = k.strip("`")
                 count += 1
                 if count > ((pagenum*10)-10) and count  <= (pagenum*10):
                     if count in [1,2,3,4,5]:
                         medal = bot.config_stars['medals'][(count-1)]
                     else:
                         medal =''
-                username = username + '``#' + str(count) + addspace(3-len(str(count))) + '- ' + "$" + v + '' + addspace(5-len(v)) + '-' + addspace(5-len(v)) + k + ''+ addspace(18-len(k)) + '-``' + medal + '\n\n'
+                    if not username:
+                        username = f"#{str(count)} - ${v} - {k} {medal}\n"
+                    else:
+                        username = username + f"\n#{str(count)} - ${v} - {k} {medal}\n"
             em = discord.Embed(colour=12745742)
-            try:
-                    em.add_field(name ='Top Bals | page ' + str(pagenum) + ' of ' + str(math.ceil(total/10)), value=username, inline=False)
-                    em.set_footer(text=bot.embed_footer + time)
-            except:
-                em.add_field(name =':x: ERROR :x:', value='Invalid page number! (' + str(pagenum) + ')\nPlease use ``'+bot.config_prefix+'help`` for more information.', inline=False)
+            if pagenum <= math.ceil(total/10):
+                em.add_field(name ='Top Bals | page ' + str(pagenum) + ' of ' + str(math.ceil(total/10)), value=username, inline=False)
+                em.set_footer(text=bot.embed_footer + time)
+            else:
+                em.add_field(name =':x: ERROR :x:', value='Invalid page number! (' + str(pagenum) + ')\nPlease use ``help`` for more information.', inline=False)
             await asyncio.sleep(1)
             await ctx.send(embed=em)
             try:
                 await ctx.message.delete()
             except:
                 pass
+
+@bot.command(enabled=True)
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def cashtop(ctx, pagenum='1'):
+    """Check out the money balances"""
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        verified = await checkVerified(ctx)
+        if verified == True:
+            await ctx.trigger_typing()
+            time = getTime()
+            pagenum = int(pagenum)
+            username = None
+            count = 0
+            total = 0
+            di = {}
+            data = read_json('money')
+            for i in data:
+                di[data[i]['name']] = int(data[i]['money'])
+                total += 1
+            results = sorted(di.items(), key=lambda t : t[1], reverse=True)
+            for k, v in results:
+                v = str(v)
+                k = k.strip("`")
+                count += 1
+                if count > ((pagenum*10)-10) and count  <= (pagenum*10):
+                    if count in [1,2,3,4,5]:
+                        medal = bot.config_stars['medals'][(count-1)]
+                    else:
+                        medal =''
+                    if not username:
+                        username = f"#{str(count)} - ${v} - {k} {medal}\n"
+                    else:
+                        username = username + f"\n#{str(count)} - ${v} - {k} {medal}\n"
+            em = discord.Embed(colour=12745742)
+            if pagenum <= math.ceil(total/10):
+                em.add_field(name ='Top Cash Bals | page ' + str(pagenum) + ' of ' + str(math.ceil(total/10)), value=username, inline=False)
+                em.set_footer(text=bot.embed_footer + time)
+            else:
+                em.add_field(name =':x: ERROR :x:', value='Invalid page number! (' + str(pagenum) + ')\nPlease use ``help`` for more information.', inline=False)
+            await asyncio.sleep(1)
+            await ctx.send(embed=em)
+            try:
+                await ctx.message.delete()
+            except:
+                pass
+
+
+@bot.command(enabled=True)
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def banktop(ctx, pagenum='1'):
+    """Check out the money balances"""
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        verified = await checkVerified(ctx)
+        if verified == True:
+            await ctx.trigger_typing()
+            time = getTime()
+            pagenum = int(pagenum)
+            username = None
+            count = 0
+            total = 0
+            di = {}
+            data = read_json('money')
+            for i in data:
+                di[data[i]['name']] = int(data[i]['bankedMoney'])
+                total += 1
+            results = sorted(di.items(), key=lambda t : t[1], reverse=True)
+            for k, v in results:
+                v = str(v)
+                k = k.strip("`")
+                count += 1
+                if count > ((pagenum*10)-10) and count  <= (pagenum*10):
+                    if count in [1,2,3,4,5]:
+                        medal = bot.config_stars['medals'][(count-1)]
+                    else:
+                        medal =''
+                    if not username:
+                        username = f"#{str(count)} - ${v} - {k} {medal}\n"
+                    else:
+                        username = username + f"\n#{str(count)} - ${v} - {k} {medal}\n"
+            em = discord.Embed(colour=12745742)
+            if pagenum <= math.ceil(total/10):
+                em.add_field(name ='Top Bank Bals | page ' + str(pagenum) + ' of ' + str(math.ceil(total/10)), value=username, inline=False)
+                em.set_footer(text=bot.embed_footer + time)
+            else:
+                em.add_field(name =':x: ERROR :x:', value='Invalid page number! (' + str(pagenum) + ')\nPlease use ``help`` for more information.', inline=False)
+            await asyncio.sleep(1)
+            await ctx.send(embed=em)
+            try:
+                await ctx.message.delete()
+            except:
+                pass
+
 
 @bot.command()
 @commands.is_owner()
@@ -1308,8 +1395,8 @@ async def emtest(ctx, *, em):
     """Set embed footers"""
     bot.embed_footer = em
 
-@bot.group()
-@commands.cooldown(1, 2, commands.BucketType.user)
+@bot.group(enabled=True)
+@commands.cooldown(1, 300, commands.BucketType.user)
 async def rob(ctx, user: discord.Member=None, type=None):
     """Rob some people"""
     whitelistedChannel = await checkWhitelist(ctx)
@@ -1319,7 +1406,7 @@ async def rob(ctx, user: discord.Member=None, type=None):
             if not user:
                 time = getTime()
                 em = discord.Embed(title="Rob", description="Bloody gangs these days", colour=0xffffff)
-                em.add_field(name="rob (user) (Cash/Bank - Optional)",value="rob someone, defaults to cash", inline=False)
+                em.add_field(name="rob (user)",value="rob someones cash", inline=False)
                 em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
                 em.set_footer(text=bot.embed_footer + time)
                 await ctx.send(embed=em, delete_after=15)
@@ -1364,9 +1451,9 @@ async def rob(ctx, user: discord.Member=None, type=None):
                             if not uid in userData:
                                 userData[uid] = {}
                             if not 'criminalNum' in userData[uid]:
-                                userData[uid]['criminalNum'] = 1
+                                userData[uid]['criminalNum'] = 0
                             currentCrimRating = userData[uid]['criminalNum']
-                            userData[uid]['criminalNum'] = currentCrimRating - 2
+                            userData[uid]['criminalNum'] = currentCrimRating - 1
                             write_json(userData, 'userConfig')
 
                             time = getTime()
@@ -1393,32 +1480,16 @@ async def rob(ctx, user: discord.Member=None, type=None):
                             currentCash = moneyData[uid]['money']
                         except:
                             currentCash = 0
-                        try:
-                            bankedCash = moneyData[uid]['bankedMoney']
-                        except:
-                            bankedCash = 0
-                        totalMoney = currentCash + bankedCash
+                        totalMoney = currentCash
                         if totalMoney != 0:
                             cashFine = None
-                            bankFine = None
-                            if currentCash != 0 and bankedCash != 0:
-                                cashPercentage = (totalMoney - bankedCash) / 100
-                                bankedPercentage = (totalMoney - currentCash) / 100
+                            if currentCash != 0:
+                                cashPercentage = totalMoney / 100
                                 fine = totalMoney * lossPercentage
-                                bankFine = (fine / randomFour) * bankedPercentage
                                 cashFine = (fine / randomFour) * cashPercentage
-                                moneyData[uid]['money'] = currentCash - cashFine
-                                moneyData[uid]['bankedMoney'] = bankedCash - bankFine
-                            elif currentCash == 0 and bankedCash != 0:
-                                bankFine = totalMoney * lossPercentage
-                                moneyData[uid]['bankedMoney'] = bankedCash - bankFine
-                            elif currentCash != 0 and bankedCash == 0:
-                                cashFine = totalMoney * lossPercentage
                                 moneyData[uid]['money'] = currentCash - cashFine
                             if not cashFine:
                                 cashFine = 0
-                            if not bankFine:
-                                bankFine = 0
 
                             courtRequired = await courtSystem(ctx)
                             if courtRequired == False:
@@ -1426,18 +1497,15 @@ async def rob(ctx, user: discord.Member=None, type=None):
                                 if not uid in userData:
                                     userData[uid] = {}
                                 currentCrimRating = userData[uid]['criminalNum']
-                                userData[uid]['criminalNum'] = currentCrimRating + 2
+                                userData[uid]['criminalNum'] = currentCrimRating + 1
                                 write_json(userData, 'userConfig')
-                                bankFine = round(bankFine)
                                 cashFine = round(cashFine)
                                 time = getTime()
-                                tfine = float(cashFine) + float(bankFine)
-                                print(tfine, cashFine, bankFine)
+                                tfine = float(cashFine)
                                 totalCountAdd(uid, 'totalMoneyLost', 'money', tfine)
-                                em = discord.Embed(title="Robbery", description="You played yourself fool.", colour=0xCC0000)
+                                em = discord.Embed(title="Robbery", description="You played yourself fool.", colour=0xFF6347)
                                 em.add_field(name="Victim:",value=f"You", inline=False)
                                 em.add_field(name="Cash lost:",value=f"${cashFine}", inline=False)
-                                em.add_field(name="Banked money lost:",value=f"${bankFine}", inline=False)
                                 em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
                                 em.set_footer(text=bot.embed_footer + time)
                                 await ctx.send(embed=em)
@@ -1448,7 +1516,27 @@ async def rob(ctx, user: discord.Member=None, type=None):
                         else:
                             await ctx.send("Lucky... Your too poor to tax as of right now...")
                 write_json(moneyData, 'money')
-            elif type.lower() == 'bank':
+
+
+@bot.command(aliases=['bankrob','robbank'])
+@commands.cooldown(1, 1800, commands.BucketType.user)
+async def _bankrob(ctx, user: discord.Member=None):
+        whitelistedChannel = await checkWhitelist(ctx)
+        if whitelistedChannel == True:
+            verified = await checkVerified(ctx)
+            if verified == True:
+                if not user:
+                    time = getTime()
+                    em = discord.Embed(title="Rob", description="Bloody gangs these days", colour=0xffffff)
+                    em.add_field(name="rob (user)",value="rob someones cash", inline=False)
+                    em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+                    em.set_footer(text=bot.embed_footer + time)
+                    await ctx.send(embed=em, delete_after=15)
+                    try:
+                        await ctx.message.delete()
+                    except:
+                        pass
+                    return
                 """Rob someone elses bank account"""
                 userData = read_json('userConfig')
                 uid = '{0.id}'.format(ctx.author)
@@ -1456,9 +1544,9 @@ async def rob(ctx, user: discord.Member=None, type=None):
                 userId = '{0.id}'.format(user)
                 if not uid in userData:
                     userData[uid] = {}
-                    userData[uid]['criminalNum'] = 1
+                    userData[uid]['criminalNum'] = 0
                 if not 'criminalNum' in userData[uid]:
-                    userData[uid]['criminalNum'] = 1
+                    userData[uid]['criminalNum'] = 0
                 write_json(userData, 'userConfig')
                 userData = read_json('userConfig')
                 criminalNum = userData[uid]['criminalNum']
@@ -1472,7 +1560,7 @@ async def rob(ctx, user: discord.Member=None, type=None):
                     if randomOne != randomTwo:
                         moneyData = read_json('money')
                         if userId in moneyData:
-                            randomThree = random.randint(1,15)
+                            randomThree = random.randint(1,5)
                             theftPercentage = randomThree / 100
                             userBankMoney = moneyData[userId]['bankedMoney']
                             stolenMoney = userBankMoney * theftPercentage
@@ -1487,7 +1575,7 @@ async def rob(ctx, user: discord.Member=None, type=None):
                             if not uid in userData:
                                 userData[uid] = {}
                             if not 'criminalNum' in userData[uid]:
-                                userData[uid]['criminalNum'] = 1
+                                userData[uid]['criminalNum'] = 0
                             currentCrimRating = userData[uid]['criminalNum']
                             userData[uid]['criminalNum'] = currentCrimRating - 3
                             write_json(userData, 'userConfig')
@@ -1509,6 +1597,201 @@ async def rob(ctx, user: discord.Member=None, type=None):
                 else:
                     await ctx.send(content=f"Hey <@{uid}>, you can't rob peoples banks yet, k thx lmaooo.\nRob more people's cash to improve your criminal rating and then rob banks", delete_after=10)
 
+@bot.group(aliases=['gangs'])
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def gang(ctx):
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        verified = await checkVerified(ctx)
+        if verified == True:
+            if ctx.invoked_subcommand is None:
+                em = discord.Embed(title="Commands", description="Avaliable commands.\n*Note these are still in development*", colour=0x0000CC, timestamp=ctx.message.created_at)
+                em.add_field(name="gang create",value="create your own gang, Cost $750\n||Command finished.||", inline=False)
+                em.add_field(name="gang name",value="change your gang name, Cost $50", inline=False)
+                em.add_field(name="gang buy",value="buy gear for your gang", inline=False)
+                em.add_field(name="gang invite",value="invite someone to your gang", inline=False)
+                em.add_field(name="gang leave",value="leave your current gang", inline=False)
+                em.add_field(name="gang stats",value="checkout your gang stats\n||Command finished.||", inline=False)
+                em.add_field(name="gang payouts",value="change the payout scheme for your gang", inline=False)
+                em.add_field(name="gang settings",value="alter your gangs settings", inline=False)
+                em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+                em.set_footer(text=bot.embed_footer)
+                await ctx.send(embed=em,delete_after=30)
+                await ctx.message.delete()
+
+@gang.command()
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def create(ctx):
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        verified = await checkVerified(ctx)
+        if verified == True:
+            await ctx.message.delete()
+            data = read_json('gangs')
+            uid = str(ctx.author.id)
+            await ctx.send(f"<@{uid}>")
+            if uid in data:
+                await ctx.send(f"Hey <@{uid}>, you are already leader of a gang.\nIf you wish to create a new gang please delete your old gang first using `gang settings delete`",delete_after=30)
+                return
+            for i in data:
+                if uid in data[i]['members']:
+                    await ctx.send(f"Hey <@{uid}>, you are already part of a gang.\nIf you wish to create a new gang please leave your old gang first using `gang leave`",delete_after=30)
+                    return
+            money = read_json('money')
+            if not uid in money:
+                await ctx.send("Hey, in order to create a gang you do need to have used my commands to earn money ya know...",delete_after=30)
+                return
+            if money[uid]['money'] < 750: #If there cash is less than $750 (gang creation cost)
+                await ctx.send("Um, so you do actually need $750 cash in order to create a gang ya know...",delete_after=30)
+                return
+
+            foundName = False
+            duplicate = False
+            async def getname():
+                msgone = await ctx.send("Please enter a name for your gang. You have 60 seconds.\nNote Gang names must be under 25 characters long.")
+                try:
+                    msg = await bot.wait_for('message', timeout=60, check=lambda message: message.author == ctx.author)
+                    if msg:
+                        await msgone.delete()
+                        return msg.content
+                except asyncio.TimeoutError:
+                    await msgone.delete()
+                    await ctx.send("Timed out.",delete_after=5)
+                    await asyncio.sleep(5)
+                    return "TimeoutError"
+
+            while foundName is False:
+                name = await getname()
+                name = name.lower()
+                if name in ['cancel', 'stop']:
+                    await ctx.send("Cancelling the process...",delete_after=15)
+                    return
+                if name != "TimeoutError":
+                    if len(name) <= 25: #if the name is smaller than 25 characters long
+                        for i in data:
+                            if data[i]['name'] == name:
+                                await ctx.send(f"Hey! This name (`{name}`) is already in use. Please pick another one",delete_after=10)
+                                duplicate = True
+                        if duplicate is False:
+                            msgone = await ctx.send(f"Please confirm you want your gang name to be **{name}**\nTo confirm please type yes.")
+                            try:
+                                msg = await bot.wait_for('message', timeout=30, check=lambda message: message.author == ctx.author)
+                                if msg:
+                                    if msg.content.lower() in ['yes', 'confirm', 'yea']:
+                                        await msgone.delete()
+                                        await ctx.send("Thanks for confirming, we will now begin the next stage of creation.",delete_after=10)
+                                        foundName = True
+                                        break
+                            except asyncio.TimeoutError:
+                                msgone.delete()
+
+            data[uid] = {}
+            data[uid]['name'] = name
+            data[uid]['leader'] = uid
+            data[uid]['members'] = []
+            data[uid]['members'].append(uid)
+            data[uid]['createdAt'] = getTime()
+            data[uid]['gangLevel'] = 1
+            data[uid]['gunLevel'] = 1
+            data[uid]['cribLevel'] = 1
+            data[uid]['workers'] = 0
+            data[uid]['money'] = 0
+            data[uid]['maxMembers'] = 3
+            data[uid]['siegeExperience'] = 0
+            write_json(data, 'gangs')
+
+            money[uid]['money'] = money[uid]['money'] - 750
+            if not "localBank" in money:
+                money["localBank"] = {}
+                money["localBank"]["cash"] = 750
+            money["localBank"]["cash"] = money["localBank"]["cash"] + 750
+            write_json(money, 'money')
+
+            em = discord.Embed(title="Gang created",timestamp=ctx.message.created_at,colour=ctx.author.colour)
+            em.add_field(name="Gang Name:",value=data[uid]['name'],inline=False)
+            em.add_field(name="Gang Leader:",value=f"<@{data[uid]['leader']}>")
+            em.add_field(name="Gang Level:",value=data[uid]['gangLevel'])
+            em.add_field(name="Gang Money:",value="$0")
+            em.set_footer(text="*You have been charged $750 to create this gang.*")
+            em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+            await ctx.send(embed=em,delete_after=15)
+            await ctx.author.send(embed=em)
+
+@gang.command()
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def stats(ctx):
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        verified = await checkVerified(ctx)
+        if verified == True:
+            data = read_json('gangs')
+            uid = str(ctx.author.id)
+            gangLeader = False
+            gangMember = False
+            gang = None
+            if uid in data:
+                gangLeader = True
+                gang = uid
+            if gangLeader is False:
+                for i in data:
+                    if uid in data[i]['members']:
+                        gangMember = True
+                        gang = i
+            if gangLeader is False and gangMember is False:
+                await ctx.send("It doesn't look like your in a gang sorry mate, feel free to create one with `gang create`", delete_after=15)
+                return
+            gangMembers = None
+            memberCount = 0
+            for i in data[gang]['members']:
+                if not gangMembers:
+                    gangMembers = f"<@{i}>"
+                else:
+                    gangMembers = gangMembers +  f", <@{i}>"
+                memberCount += 1
+
+            em = discord.Embed(title="Gang Stats",timestamp=ctx.message.created_at,colour=ctx.author.colour)
+            em.add_field(name="Gang Name:",value=data[gang]['name'],inline=False)
+            em.add_field(name="Gang Leader:",value=f"<@{data[gang]['leader']}>")
+            em.add_field(name="Gang Level:",value=data[gang]['gangLevel'])
+            em.add_field(name="Gang Money:",value=data[gang]['money'])
+            em.add_field(name='\uFEFF', value='\uFEFF',inline=False)
+            em.add_field(name="Gang Members:",value=gangMembers)
+            em.add_field(name="Gang Workers:",value=data[gang]['workers'])
+            em.add_field(name='\uFEFF', value='\uFEFF',inline=False)
+            em.add_field(name="Gang Crib Level:",value=data[gang]['cribLevel'])
+            em.add_field(name="Gang Gun Level:",value=data[gang]['gunLevel'])
+            em.add_field(name="Gang Siege Experience:",value=data[gang]['siegeExperience'])
+            em.add_field(name='\uFEFF', value='\uFEFF',inline=False)
+            em.add_field(name="Gang Member Count:",value=memberCount)
+            em.add_field(name="Gang Max Member Count:",value=data[gang]['maxMembers'])
+            em.add_field(name="Gang Created At:",value=data[gang]['createdAt'])
+            em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
+            await ctx.send(embed=em,delete_after=30)
+            await ctx.message.delete()
+
+@gang.command()
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def leave(ctx):
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        verified = await checkVerified(ctx)
+        if verified == True:
+            data = read_json('gangs')
+            uid = str(ctx.author.id)
+            gangLeader = False
+            gangMember = False
+            gang = None
+            if uid in data:
+                gangLeader = True
+                gang = uid
+            if gangLeader is False:
+                for i in data:
+                    if uid in data[i]['members']:
+                        gangMember = True
+                        gang = i
+            if gangLeader is False and gangMember is False:
+                await ctx.send("It doesn't look like your in a gang sorry mate, feel free to create one with `gang create`", delete_after=15)
+                return
 
 @bot.group()
 @commands.is_owner()
@@ -1736,7 +2019,7 @@ async def remove(ctx, user=None):
 
 @bot.command()
 @commands.cooldown(1, 2, commands.BucketType.user)
-async def rtest(ctx, invite: discord.Invite):
+async def inviteinfo(ctx, invite: discord.Invite):
         """Shows information about an invite."""
         whitelistedChannel = await checkWhitelist(ctx)
         if whitelistedChannel == True:
@@ -1805,7 +2088,7 @@ async def antibot(ctx):
 
 @bot.command()
 @commands.cooldown(1, 100, commands.BucketType.user)
-async def si(ctx, guild: int=None):
+async def serverinfo(ctx, guild: int=None):
         """Command to show server info"""
         whitelistedChannel = await checkWhitelist(ctx)
         if whitelistedChannel == True:
@@ -1830,7 +2113,7 @@ async def si(ctx, guild: int=None):
             await ctx.send(embed=embed)
             if ctx.author.id == 271612318947868673:
                 await ctx.send("Reset cooldown?")
-                si.reset_cooldown(ctx)
+                serverinfo.reset_cooldown(ctx)
 
 @bot.group()
 @commands.has_role('~ Staff')
@@ -1872,6 +2155,7 @@ async def add(ctx, user, amount: float, type=None):
                 newAmount = round(newAmount)
                 money = round(money)
                 em = discord.Embed(title="Payroll change:", description=f"{type} money added", colour=0xcccccc,timestamp=ctx.message.created_at)
+                em.add_field(name="Affected User:",value=f"<@{uid}>")
                 em.add_field(name="Money added:",value=f"${amount}", inline=False)
                 em.add_field(name="New balance:", value=f"${newAmount}")
                 em.add_field(name="Old balance:", value=f"${money}")
@@ -1907,6 +2191,7 @@ async def remove(ctx, user, amount: float, type=None):
                 newAmount = round(newAmount)
                 money = round(money)
                 em = discord.Embed(title="Payroll change:", description=f"{type} money removed", colour=0xcccccc,timestamp=ctx.message.created_at)
+                em.add_field(name="Affected User:",value=f"<@{uid}>")
                 em.add_field(name="Money removed:",value=f"${amount}", inline=False)
                 em.add_field(name="New balance:", value=f"${newAmount}")
                 em.add_field(name="Old balance:", value=f"${money}")
@@ -1940,6 +2225,7 @@ async def clear(ctx, user, type=None):
                 write_json(data, 'money')
                 await ctx.message.delete()
                 em = discord.Embed(title="Payroll change:", description=f"{type} money cleared", colour=0xcccccc,timestamp=ctx.message.created_at)
+                em.add_field(name="Affected User:",value=f"<@{uid}>")
                 em.add_field(name="Money cleared:",value="Success", inline=False)
                 em.set_footer(text=bot.embed_footer)
                 em.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
@@ -1979,7 +2265,6 @@ async def tca(ctx):
 
 #functions
 def totalCountAdd(uid, type, json, amount):
-    return
     data = read_json(str(json))
     uid = str(uid)
     type = str(type)
@@ -2099,6 +2384,8 @@ async def CheckTwo(ctx):
                 em = discord.Embed(title=f"{ctx.message.author}", description="Verification status:\nPass", colour=0x228B22)
                 em.add_field(name="Thank you for completing this bot check.",value=f"Your input: *{msg.content}*")
                 data = read_json('userConfig')
+                if not uid in data:
+                    data[uid] = {}
                 data[uid]['botCheck'] = "pass"
                 write_json(data, 'userConfig')
 
@@ -2161,20 +2448,14 @@ async def checkVerified(ctx):
         else:
             try:
                 member = bot.get_user(int(uid))
-                msg = await member.send("Hey bro. So you arent verified. Join this discord and do `-verify`\nhttps://discord.gg/RkfHxmv")
-                msgTwo = await ctx.send(f"Hey <@{uid}>, check your dms from me")
-                await asyncio.sleep(5)
-                await msg.delete()
-                await msgTwo.delete()
+                await member.send(f"Hey bro. So you arent verified. Join this discord and do `-verify`\n{bot.invite}")
+                await ctx.send(f"Hey <@{uid}>, check your dms from me",delete_after=30)
                 try:
                     await ctx.message.delete()
                 except:
                     pass
             except:
-                msg = await ctx.send(f"Hey <@{uid}, so i can't dm you it seems... Join this discord and do `-verify`\nhttps://discord.gg/RkfHxmv")
-                await asyncio.sleep(7.5)
-                await msg.delete()
-                await msgTwo.delete()
+                await ctx.send(f"Hey <@{uid}, so i can't dm you it seems... Join this discord and do `-verify`\n{bot.invite}")
                 try:
                     await ctx.message.delete()
                 except:
@@ -2183,20 +2464,14 @@ async def checkVerified(ctx):
     else:
         try:
             member = bot.get_user(int(uid))
-            msg = await member.send("Hey bro. So you arent verified. Join this discord and do `-verify`\nhttps://discord.gg/RkfHxmv")
-            msgTwo = await ctx.send(f"Hey <@{uid}>, check your dms from me")
-            await asyncio.sleep(5)
-            await msg.delete()
-            await msgTwo.delete()
+            await member.send(f"Hey bro. So you arent verified. Join this discord and do `-verify`\n{bot.invite}")
+            await ctx.send(f"Hey <@{uid}>, check your dms from me",delete_after=30)
             try:
                 await ctx.message.delete()
             except:
                 pass
         except:
-            msg = await ctx.send(f"Hey <@{uid}, so i can't dm you it seems... Join this discord and do `-verify`\nhttps://discord.gg/RkfHxmv")
-            await asyncio.sleep(5)
-            await msg.delete()
-            await msgTwo.delete()
+            await ctx.send(f"Hey <@{uid}, so i can't dm you it seems... Join this discord and do `-verify`\n{bot.invite}")
             try:
                 await ctx.message.delete()
             except:
@@ -2379,8 +2654,10 @@ async def stats(ctx):
     if whitelistedChannel == True:
         if ctx.invoked_subcommand is None:
             uid = str(ctx.author.id)
+            did = str(ctx.guild.id)
             md = read_json('money')
             data = read_json('userConfig')
+            dData = read_json('discordConfig')
             if not uid in md:
                 await ctx.send("Please generate some money and come back...")
                 return
@@ -2407,13 +2684,31 @@ async def stats(ctx):
             except:
                 totalBugReportsDenied = 0
 
+            #crim status
+            try:
+                crimStatus = data[uid]['criminalNum']
+            except:
+                crimStatus = 0
+
+            #income modifier
+            try:
+                dMod = dData[did]['modifier']
+            except:
+                dMod = 0
+            try:
+                uMod = data[uid]['modifier']
+            except:
+                uMod = 0
+            tMod = uMod + dMod + 1
+
             embed = discord.Embed(title='User Stats', description='Your stats for the bot. \n**This feature is still under development**', colour=ctx.author.colour, timestamp=ctx.message.created_at)
             embed.add_field(name='Total Money Won:', value=f"${totalMoneyWon}")
             embed.add_field(name='Total Money Lost:', value=f"${totalMoneyLost}")
-            embed.add_field(name='\uFEFF', value='\uFEFF')
+            embed.add_field(name='Income Modifer:', value=f'{tMod}')
             embed.add_field(name='Total Bugs Accepted:', value=totalBugReportsAccepted)
             embed.add_field(name='Total Bugs Denied:', value=totalBugReportsDenied)
             embed.add_field(name='\uFEFF', value='\uFEFF')
+            embed.add_field(name='Criminal Status:', value=f'You need a status of -100 or lower to rob banks.\nYours is {crimStatus}')
             embed.set_footer(text=bot.embed_footer)
             embed.set_author(name = str(ctx.author), icon_url = str(ctx.author.avatar_url))
             await ctx.send(embed = embed)
