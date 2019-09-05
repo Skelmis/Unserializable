@@ -1608,13 +1608,14 @@ async def gang(ctx):
             if ctx.invoked_subcommand is None:
                 em = discord.Embed(title="Commands", description="Avaliable commands.\n*Note these are still in development*", colour=0x0000CC, timestamp=ctx.message.created_at)
                 em.add_field(name="gang create",value="create your own gang, Cost $750\n||Command finished.||", inline=False)
-                em.add_field(name="gang name",value="change your gang name, Cost $50", inline=False)
+                em.add_field(name="gang name",value="change your gang name, Cost $50\n||Command finished.||", inline=False)
                 em.add_field(name="gang buy",value="buy gear for your gang", inline=False)
                 em.add_field(name="gang invite (user)",value="invite someone to your gang\n||Command finished.||", inline=False)
+                em.add_field(name="gang kick",value="kick someone from your gang\n||Command finished.||", inline=False)
                 em.add_field(name="gang leave",value="leave your current gang\n||Command finished.||", inline=False)
                 em.add_field(name="gang disband",value="disband your gang\n||Command finished.||")
                 em.add_field(name="gang stats",value="checkout your gang stats\n||Command finished.||", inline=False)
-                em.add_field(name="gang payouts",value="change the payout scheme for your gang", inline=False)
+                em.add_field(name="gang pay",value="pay someone using your gangs money ", inline=False)
                 em.add_field(name="gang settings",value="alter your gangs settings", inline=False)
                 if "~ Management" in [role.name for role in ctx.author.roles]:
                     em.add_field(name='Admin commands', value='\uFEFF',inline=False)
@@ -1728,6 +1729,114 @@ async def create(ctx):
 
 @gang.command()
 @commands.cooldown(1, 2, commands.BucketType.user)
+async def name(ctx,*,name=None):
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        verified = await checkVerified(ctx)
+        if verified == True:
+            data = read_json('gangs')
+            gang = await gangCheck(ctx)
+            uid = str(ctx.author.id)
+            if not gang:
+                return
+            if data[gang]['leader'] != str(ctx.author.id):
+                await ctx.send("Hey. You need to be gang leader to do this",delete_after=7.5)
+                return
+            money = read_json('money')
+            if not uid in money:
+                await ctx.send("Hey, in order to create a gang you do need to have used my commands to earn money ya know...",delete_after=30)
+                return
+            if money[uid]['money'] < 50: #If there cash is less than $750 (gang creation cost)
+                await ctx.send("Um, so you do actually need $50 cash in order to create a gang ya know...",delete_after=30)
+                return
+
+            foundName = False
+            duplicate = False
+            async def getname():
+                msgone = await ctx.send("Please enter a name for your gang. You have 60 seconds.\nNote Gang names must be under 25 characters long.")
+                try:
+                    msg = await bot.wait_for('message', timeout=60, check=lambda message: message.author == ctx.author)
+                    if msg:
+                        for i in range(len(msg.content)):
+                            if msg.content[i] in ["@",'<','>','!','&']:
+                                await ctx.send("Illegal characters found in name, please try again. Exclude and of the following from your name: `@`, `<`, `>`, `!`, `&`",delete_after=15)
+                                await asyncio.sleep(5)
+                                return "TimeoutError"
+                        await msgone.delete()
+                        return msg.content
+                except asyncio.TimeoutError:
+                    await msgone.delete()
+                    await ctx.send("Timed out.",delete_after=5)
+                    await asyncio.sleep(5)
+                    return "TimeoutError"
+
+            while foundName is False:
+                name = await getname()
+                name = name.lower()
+                if name in ['cancel', 'stop']:
+                    await ctx.send("Cancelling the process...",delete_after=15)
+                    return
+                if name != "timeouterror":
+                    if len(name) <= 25: #if the name is smaller than 25 characters long
+                        for i in data:
+                            if data[i]['name'] == name:
+                                await ctx.send(f"Hey! This name (`{name}`) is already in use. Please pick another one",delete_after=10)
+                                duplicate = True
+                        if duplicate is False:
+                            msgone = await ctx.send(f"Please confirm you want your gang name to be **{name}**\nTo confirm please type yes.")
+                            try:
+                                msg = await bot.wait_for('message', timeout=30, check=lambda message: message.author == ctx.author)
+                                if msg:
+                                    if msg.content.lower() in ['yes', 'confirm', 'yea']:
+                                        await msgone.delete()
+                                        foundName = True
+                                        break
+                            except asyncio.TimeoutError:
+                                msgone.delete()
+
+            data = read_json('gangs')
+            data[gang]['name'] = name
+            write_json(data,'gangs')
+            money[uid]['money'] = money[uid]['money'] - 50
+            write_json(money, 'money')
+            await ctx.send(f"Hey, I have successfully changed your gang name to **{name}**",delete_after=10)
+
+@gang.command()
+@commands.cooldown(1, 2, commands.BucketType.user)
+async def kick(ctx, user=None):
+    whitelistedChannel = await checkWhitelist(ctx)
+    if whitelistedChannel == True:
+        verified = await checkVerified(ctx)
+        if verified == True:
+            data = read_json('gangs')
+            uid = user.strip("<@!>")
+            user = bot.get_user(int(uid))
+            gang = await gangCheck(ctx)
+            if not gang:
+                return
+            if data[gang]['leader'] != str(ctx.author.id):
+                await ctx.send("Hey. You need to be gang leader to do this",delete_after=7.5)
+                return
+
+            await ctx.send(f"Hey <@{ctx.author.id}>! Are you sure you would like to kick {user.name} from your gang? If so type yes\nYou have 15 seconds to respond",delete_after=14)
+            try:
+                msg = await bot.wait_for('message', timeout=30, check=lambda message: message.author == ctx.author)
+                if msg:
+                    if msg.content.lower() in ['yes', 'confirm', 'yea']:
+                        data = read_json('gangs')
+                        for i in range(len(data[gang]['members'])):
+                            if data[gang]['members'][i] == uid:
+                                data[gang]['members'].pop(i)
+                        write_json(data,'gangs')
+                        await ctx.send(f"Hey <@{ctx.author.id}>! You have successfully kicked {user.name} from your gang.",delete_after=10)
+                        await user.send(f"Hey. Sorry to inform you but you were kicked from your old gang.\n{ctx.author.name} has kicked you from **{data[gang]['name']}**")
+                    else:
+                        await ctx.send("I have canceled the process.",delete_after=5)
+            except asyncio.TimeoutError:
+                await ctx.send("I have canceled the process due to lack of input.",delete_after=5)
+
+@gang.command()
+@commands.cooldown(1, 2, commands.BucketType.user)
 async def stats(ctx):
     whitelistedChannel = await checkWhitelist(ctx)
     if whitelistedChannel == True:
@@ -1803,6 +1912,7 @@ async def join(ctx, gang=None):
     if whitelistedChannel == True:
         verified = await checkVerified(ctx)
         if verified == True:
+            await ctx.message.delete()
             data = read_json('gangs')
             uid = str(ctx.author.id)
             user = bot.get_user(int(uid))
@@ -1831,6 +1941,10 @@ async def join(ctx, gang=None):
                 await ctx.send("You haven't been invited to this gang.",delete_after=10)
                 return
 
+            if len(data[gang]['members']) == data[gang]['maxMembers']:
+                await ctx.send("Hey! This gang is at it's max members, therefore you cannot join.",delete_after=10)
+                return
+
             for o in range(len(data[gang]['invitedUsers'])):
                 if data[gang]['invitedUsers'][o] == uid:
                     data[gang]['invitedUsers'].pop(o)
@@ -1853,6 +1967,10 @@ async def disband(ctx):
         if verified == True:
             gang = await gangCheck(ctx)
             if not gang:
+                return
+            data = read_json('gangs')
+            if str(ctx.author.id) != data[gang]['leader']:
+                await ctx.send("You don't appear to be the gang leader, so you cannot use this command",delete_after=10)
                 return
             await ctx.message.delete()
             await ctx.send(f"Hey <@{ctx.author.id}>! Are you sure you would like me to disbanded your gang? If so type yes\nYou have 15 seconds to respond",delete_after=14)
@@ -1886,6 +2004,9 @@ async def invite(ctx, user=None):
 
             data = read_json('gangs')
             uid = user.strip("<@!>")
+            if str(ctx.author.id) != data[gang]['leader']:
+                await ctx.send("You don't appear to be the gang leader, so you cannot use this command",delete_after=10)
+                return
             if uid in data[gang]['members']:
                 await ctx.send("This person is already in your gang...",delete_after=7.5)
                 return
@@ -1897,7 +2018,7 @@ async def invite(ctx, user=None):
                 await ctx.send("You have already invited this user",delete_after=7.5)
                 return
             user = bot.get_user(int(uid))
-            await ctx.send(f"Hey {ctx.author.mention}! Please confirm you wish to invite Name:`{user.name} Id:({uid})` to your gang. Type yes to confirm.")
+            await ctx.send(f"Hey {ctx.author.mention}! Please confirm you wish to invite Name:`{user.name} Id:({uid})` to your gang. Type yes to confirm.",delete_after=15)
             try:
                 msg = await bot.wait_for('message', timeout=30, check=lambda message: message.author == ctx.author)
                 if msg:
